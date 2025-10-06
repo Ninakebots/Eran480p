@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & filters.command(["crf", f"crf@{BOT_USERNAME}"]))
     async def changecrf(app, message):
-        if message.from_user.id in AUTH_USERS:
+        if message.chat.id in AUTH_USERS:
             cr = message.text.split(" ", maxsplit=1)[1]
             crf.insert(0, f"{cr}")
             await message.reply_text(f"📊 I will be using : {cr} crf")
@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & filters.command(["resolution", f"resolution@{BOT_USERNAME}"]))
     async def changer(app, message):
-        if message.from_user.id in AUTH_USERS:
+        if message.chat.id in AUTH_USERS:
             r = message.text.split(" ", maxsplit=1)[1]
             resolution.insert(0, f"{r}")
             await message.reply_text(f"🎬 I will be using : {r}")
@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & filters.command(["preset", f"preset@{BOT_USERNAME}"]))
     async def changepr(app, message):
-        if message.from_user.id in AUTH_USERS:
+        if message.chat.id in AUTH_USERS:
             pop = message.text.split(" ", maxsplit=1)[1]
             preset.insert(0, f"{pop}")
             await message.reply_text(f"⚡ I will be using : {pop} preset")
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & filters.command(["codec", f"codec@{BOT_USERNAME}"]))
     async def changecode(app, message):
-        if message.from_user.id in AUTH_USERS:
+        if message.chat.id in AUTH_USERS:
             col = message.text.split(" ", maxsplit=1)[1]
             codec.insert(0, f"{col}")
             await message.reply_text(f"🎥 I will be using : {col} codec")
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & filters.command(["audio", f"audio@{BOT_USERNAME}"]))
     async def changea(app, message):
-        if message.from_user.id in AUTH_USERS:
+        if message.chat.id in AUTH_USERS:
             aud = message.text.split(" ", maxsplit=1)[1]
             audio_b.insert(0, f"{aud}")
             await message.reply_text(f"🎵 I will be using : {aud} audio")
@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & filters.command(["restart", f"restart@{BOT_USERNAME}"]))
     async def restarter(app, message):
-        if message.from_user.id in AUTH_USERS:
+        if message.chat.id in AUTH_USERS:
             await message.reply_text("♻️ Restarting...")
             quit(1)
         else:
@@ -142,14 +142,14 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & filters.command(["settings", f"settings@{BOT_USERNAME}"]))
     async def settings(app, message):
-        if message.from_user.id in AUTH_USERS:
+        if message.chat.id in AUTH_USERS:
             await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}")
         else:
             await message.reply_text("🔒 Admin Only")
 
     @app.on_message(filters.incoming & filters.command(["sysinfo", f"sysinfo@{BOT_USERNAME}"]))
     async def sysinfo_handler(app, message):
-        if message.from_user.id in AUTH_USERS:
+        if message.chat.id in AUTH_USERS:
             await sysinfo(message)
         else:
             await message.reply_text("🔒 Admin Only")
