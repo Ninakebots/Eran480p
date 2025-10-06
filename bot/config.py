@@ -13,14 +13,14 @@ class Config(object):
     SESSION_NAME = get_config("SESSION_NAME", "Zani")
     APP_ID = int(get_config("APP_ID", "25482744"))
     API_HASH = get_config("API_HASH", "e032d6e5c05a5d0bfe691480541d64f4")
-    LOG_CHANNEL = get_config("LOG_CHANNEL", "itsmrchut")
+    LOG_CHANNEL = get_config("LOG_CHANNEL", "Animes_Wine")
     UPDATES_CHANNEL = get_config("UPDATES_CHANNEL", None)
     
     # Auth settings
-    AUTH_USERS = [1852362865]
-    AUTH_CHATS = [-1002945128480, -1002600065438, 7328629001]
+    AUTH_USERS = [8287604537, 8287604537]
+    AUTH_CHATS = [-1002667980568]
 
-    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8351404228:AAEK3t8k2fw4fvD90sU4G5yWH-xL8Gi0jHw")
+    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8047251970:AAETflhfFULA66Y8NzlV5h-jv2iR54GKwko")
     DOWNLOAD_LOCATION = get_config("DOWNLOAD_LOCATION", "/app/downloads")
     BOT_USERNAME = get_config("BOT_USERNAME", "ZaniEncoderBot")
     
