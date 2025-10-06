@@ -11,8 +11,8 @@ from bot.get_cfg import get_config
 
 class Config(object):
     SESSION_NAME = get_config("SESSION_NAME", "Zani")
-    APP_ID = int(get_config("APP_ID", "25482744"))
-    API_HASH = get_config("API_HASH", "e032d6e5c05a5d0bfe691480541d64f4")
+    APP_ID = int(get_config("APP_ID", "28662209"))
+    API_HASH = get_config("API_HASH", "bd2b38ccd241265c7ce539fa2bfb4201")
     LOG_CHANNEL = get_config("LOG_CHANNEL", "Animes_Wine")
     UPDATES_CHANNEL = get_config("UPDATES_CHANNEL", None)
     
@@ -20,7 +20,7 @@ class Config(object):
     AUTH_USERS = [8287604537, 8026801357, -1002667980568]
     AUTH_CHATS = [-1002667980568]
 
-    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8288719232:AAEY_uHDHfuJpebqSvCYfneMujCNnSTGF_E")
+    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "7491676613:AAFopVGvMeuc_LKo0lhPlT183ghLdKcRvWQ")
     DOWNLOAD_LOCATION = get_config("DOWNLOAD_LOCATION", "/app/downloads")
     BOT_USERNAME = get_config("BOT_USERNAME", "ZaniEncoderBot")
     
