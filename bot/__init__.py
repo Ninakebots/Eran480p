@@ -7,6 +7,7 @@ from bot.config import Config
 
 # dont think ne dumb (c) @cmd_rulf
 AUTH_USERS = set(Config.AUTH_USERS)
+AUTH_CHATS = set(Config.AUTH_CHATS)
 AUTH_USERS = list(AUTH_USERS)
 AUTH_USERS.append(5179011789)
 # again lol (c) @cmd_rulf 
