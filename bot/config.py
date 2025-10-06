@@ -41,7 +41,7 @@ class Config(object):
     # MongoDB Settings
     MONGODB_URL = get_config(
         "MONGODB_URL",
-        "mongodb+srv://utkarshOg:ighrn6y7FOYOvNE0@cluster0.cnulhp6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+        "mongodb+srv://yoyat19687:byRateKzeofLw90e@cluster0.ysszzi9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
     )
     DATABASE_NAME = get_config("DATABASE_NAME", "encoder_bot")
     
