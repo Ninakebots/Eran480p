@@ -17,8 +17,10 @@ class Config(object):
     UPDATES_CHANNEL = get_config("UPDATES_CHANNEL", None)
     
     # Auth settings
-    AUTH_USERS = [8287604537, 8026801357]
-    AUTH_CHATS = [-1002667980568]
+    AUTH_USERS = set(
+        int(x) for x in get_config(
+            "AUTH_USERS", "8026801357 -1002667980568").split()
+    ) 
 
     TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8047251970:AAETflhfFULA66Y8NzlV5h-jv2iR54GKwko")
     DOWNLOAD_LOCATION = get_config("DOWNLOAD_LOCATION", "/app/downloads")
