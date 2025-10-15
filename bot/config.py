@@ -17,7 +17,7 @@ class Config(object):
     UPDATES_CHANNEL = get_config("UPDATES_CHANNEL", None)
     
     # Auth settings
-    AUTH_USERS = [-1003099048197]
+    AUTH_USERS = [-1003099048197 5045662848]
     AUTH_CHATS = [-1002667980568]
 
     TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8354529582:AAG0Kp1M_b4nzilYat2RKdJnXzJGJDZbFAA")
