@@ -23,7 +23,7 @@ logging.getLogger("motor").setLevel(logging.WARNING)
 
 crf.append("28")
 codec.append("libx264")
-resolution.append("854x480")
+resolution.append("1280x720")
 preset.append("veryfast")
 audio_b.append("48k")
 
