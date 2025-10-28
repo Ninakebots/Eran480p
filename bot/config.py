@@ -20,7 +20,7 @@ class Config(object):
     AUTH_USERS = [-1003095268075]
     AUTH_CHATS = []
 
-    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8346453861:AAGXLIOAG1woz3bGbBkhZkPFiykagv_fO78")
+    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8348737971:AAHPm9xEBhBVGI_U7qy8kHKhi8nm5ry_xXs")
     DOWNLOAD_LOCATION = get_config("DOWNLOAD_LOCATION", "/app/downloads")
     BOT_USERNAME = get_config("BOT_USERNAME", "ZaniEncoderBot")
     
