@@ -263,28 +263,30 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         with open(progress_file, 'w') as f:
             f.write("")
 
-    if not crf:
-        crf.append("24")
-    if not codec:
-        codec.append("libx264")
-    if not resolution:
-        resolution.append("1920x1080")
-    if not preset:
-        preset.append("veryfast")
-    if not audio_b:
-        audio_b.append("35k")
-    if not audio_codec_list:
-        audio_codec_list.append("aac")
+        # Ensure all settings have values
+        if not crf:
+            crf.append("24")
+        if not codec:
+            codec.append("libx264")
+        if not resolution:
+            resolution.append("1920x1080")
+        if not preset:
+            preset.append("veryfast")
+        if not audio_b:
+            audio_b.append("35k")
+        if not audio_codec_list:
+            audio_codec_list.append("aac")
 
-    cmd = [
-        'ffmpeg', '-hide_banner', '-loglevel', 'warning', '-progress', progress_file,
-        '-i', video_file, '-i', watermark_url,
-        '-filter_complex', '[1:v]colorkey=0x000000:0.1:0.1[wm]; [0:v][wm]overlay=10:10',
-        '-map', '0:a?', '-map', '0:s?', '-c:v', codec[0],
-        '-crf', crf[0], '-preset', preset[0], '-b:v', '150k',
-        '-c:a', audio_codec_list[0], '-b:a', audio_b[0], '-pix_fmt', 'yuv420p', '-s', resolution[0],
-        '-metadata', 'title=', '-y', temp_output
-    ]
+        cmd = [
+            'ffmpeg', '-hide_banner', '-loglevel', 'warning', '-progress', progress_file,
+            '-i', video_file, '-i', watermark_url,
+            '-filter_complex', '[1:v]colorkey=0x000000:0.1:0.1[wm]; [0:v][wm]overlay=10:10',
+            '-map', '0:a?', '-map', '0:s?', '-c:v', codec[0],
+            '-crf', crf[0], '-preset', preset[0], '-b:v', '150k',
+            '-c:a', audio_codec_list[0], '-b:a', audio_b[0], '-pix_fmt', 'yuv420p', '-s', resolution[0],
+            '-metadata', 'title=', '-y', temp_output
+        ]
+
         COMPRESSION_START_TIME = time.time()
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         LOGGER.info(f"FFmpeg process started PID: {process.pid}")
