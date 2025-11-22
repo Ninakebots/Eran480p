@@ -7,7 +7,7 @@ from pyrogram.types import CallbackQuery
 
 from bot import (
     APP_ID, API_HASH, AUTH_USERS, DOWNLOAD_LOCATION, LOGGER, TG_BOT_TOKEN, BOT_USERNAME, SESSION_NAME, data, app, AUTH_CHATS, 
-    crf, resolution, audio_b, preset, codec, audio
+    crf, resolution, audio_b, preset, codec
 )
 from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo
 from bot.helper_funcs.database import db
@@ -21,12 +21,13 @@ from bot.commands import Command
 logging.getLogger("pymongo").setLevel(logging.WARNING)
 logging.getLogger("motor").setLevel(logging.WARNING)
 
-crf.append("26")
+# Initialize default values
+crf.append("25")
 codec.append("libx264")
-resolution.append("854x480")
+resolution.append("1280x720")
 preset.append("veryfast")
 audio_b.append("70k")
-audio.append("AAC")
+audio_codec_list = ["aac"]  # Default audio codec
 
 uptime = dt.now()
 
@@ -97,14 +98,67 @@ if __name__ == "__main__":
         else:
             await message.reply_text("🔒 Admin Only")
 
-    @app.on_message(filters.incoming & filters.command(["audio_b", f"audio@{BOT_USERNAME}"]))
-    async def changea(app, message):
-        if message.chat.id in AUTH_USERS:
-            aud = message.text.split(" ", maxsplit=1)[1]
-            audio_b.insert(0, f"{aud}")
-            await message.reply_text(f"🎵 I will be using : {aud} audio")
-        else:
-            await message.reply_text("🔒 Admin Only")
+    @app.on_message(filters.incoming & filters.command(["audio", f"audio@{BOT_USERNAME}"]))
+    async def change_audio_codec(app, message):
+        if message.chat.id not in AUTH_USERS:
+            return await message.reply_text("🔒 Admin Only")
+        
+        try:
+            parts = message.text.split(" ", maxsplit=1)
+            if len(parts) < 2:
+                return await message.reply_text("❌ Please provide an audio codec.\nExample: `/audio aac`\nAvailable codecs: aac, libmp3lame, copy")
+            
+            audio_codec = parts[1].strip().lower()
+            
+            # Validate common audio codecs
+            valid_codecs = ['aac', 'libmp3lame', 'libopus', 'copy', 'flac']
+            if audio_codec not in valid_codecs:
+                return await message.reply_text(f"❌ Unsupported audio codec!\nSupported: {', '.join(valid_codecs)}")
+            
+            # Update audio codec
+            if audio_codec_list:
+                audio_codec_list[0] = audio_codec
+            else:
+                audio_codec_list.append(audio_codec)
+                
+            await message.reply_text(f"🎵 Audio codec updated to: `{audio_codec}`")
+            
+        except Exception as e:
+            LOGGER.error(f"Error in audio codec command: {e}")
+            await message.reply_text("❌ Error updating audio codec. Please try again.")
+
+    @app.on_message(filters.incoming & filters.command(["audio_b", f"audio_b@{BOT_USERNAME}"]))
+    async def change_audio_bitrate(app, message):
+        if message.chat.id not in AUTH_USERS:
+            return await message.reply_text("🔒 Admin Only")
+        
+        try:
+            parts = message.text.split(" ", maxsplit=1)
+            if len(parts) < 2:
+                return await message.reply_text("❌ Please provide an audio bitrate.\nExample: `/audio_b 128k`")
+            
+            aud_bitrate = parts[1].strip()
+            
+            # Validate the audio bitrate format
+            if not (aud_bitrate.endswith('k') or aud_bitrate.endswith('K')):
+                return await message.reply_text("❌ Invalid format! Audio bitrate should end with 'k' (e.g., 64k, 128k, 192k, 320k)")
+            
+            # Extract numeric part and validate
+            bitrate_num = aud_bitrate[:-1]
+            if not bitrate_num.isdigit():
+                return await message.reply_text("❌ Invalid bitrate! Please use numbers followed by 'k' (e.g., 128k)")
+            
+            # Update audio bitrate
+            if audio_b:
+                audio_b[0] = aud_bitrate
+            else:
+                audio_b.append(aud_bitrate)
+                
+            await message.reply_text(f"🔊 Audio bitrate updated to: `{aud_bitrate}`")
+            
+        except Exception as e:
+            LOGGER.error(f"Error in audio bitrate command: {e}")
+            await message.reply_text("❌ Error updating audio bitrate. Please try again.")
 
     @app.on_message(filters.incoming & filters.command(["compress", f"compress@{BOT_USERNAME}"]))
     async def compress_handler(app, message):
@@ -144,7 +198,15 @@ if __name__ == "__main__":
     @app.on_message(filters.incoming & filters.command(["settings", f"settings@{BOT_USERNAME}"]))
     async def settings(app, message):
         if message.chat.id in AUTH_USERS:
-            await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}")
+            await message.reply_text(
+                f"⚙️ Current Settings:\n\n"
+                f"➥ Video Codec: {codec[0]}\n"
+                f"➥ CRF: {crf[0]}\n" 
+                f"➥ Resolution: {resolution[0]}\n"
+                f"➥ Preset: {preset[0]}\n"
+                f"➥ Audio Codec: {audio_codec_list[0]}\n"
+                f"➥ Audio Bitrate: {audio_b[0]}"
+            )
         else:
             await message.reply_text("🔒 Admin Only")
 
@@ -154,13 +216,6 @@ if __name__ == "__main__":
             await sysinfo(message)
         else:
             await message.reply_text("🔒 Admin Only")
-
-    @app.on_message(filters.incoming & filters.command(["audio_b", f"audio@{BOT_USERNAME}"]))
-    async def changea(app, message):
-        if message.chat.id in AUTH_USERS:
-            aud = message.text.split(" ", maxsplit=1)[1]
-            audio.insert(0, f"{aud}")
-            await message.reply_text(f"🎵 I will be using : {aud} audio")
 
     @app.on_message(filters.incoming & filters.command(["cancel", f"cancel@{BOT_USERNAME}"]))
     async def cancel_handler(app, message):
@@ -192,6 +247,9 @@ if __name__ == "__main__":
             f"➥ Use `/{Command.SET_WATERMARK} <image_url>` to set watermark\n"
             f"➥ Use `/{Command.CHECK_WATERMARK}` to check current watermark\n"
             f"➥ Use `/{Command.SET_WATERMARK} remove` to remove watermark\n\n"
+            f"Audio Settings:\n"
+            f"• `/audio <codec>` - Set audio codec (aac, libmp3lame, copy)\n"
+            f"• `/audio_b <bitrate>` - Set audio bitrate (e.g., 128k)\n\n"
             f"Bot Uptime = {v} 🚀\n{p}"
         )
 
