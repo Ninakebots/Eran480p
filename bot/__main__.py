@@ -7,7 +7,7 @@ from pyrogram.types import CallbackQuery
 
 from bot import (
     APP_ID, API_HASH, AUTH_USERS, DOWNLOAD_LOCATION, LOGGER, TG_BOT_TOKEN, BOT_USERNAME, SESSION_NAME, data, app, AUTH_CHATS, 
-    crf, resolution, audio_b, preset, codec
+    crf, resolution, audio_b, preset, codec, audio_codec_list
 )
 from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo
 from bot.helper_funcs.database import db
