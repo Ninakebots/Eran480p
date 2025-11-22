@@ -21,6 +21,7 @@ from bot import (
     crf,
     resolution,
     audio_b,
+    audio,
     preset,
     codec,
     pid_list
