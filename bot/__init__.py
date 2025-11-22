@@ -32,7 +32,7 @@ crf = []
 watermark = []
 resolution = []
 audio_b = []
-audio = []
+audio_codec_list = []
 preset = []
 codec = []
 # senpai I am changing app string WHY???????
