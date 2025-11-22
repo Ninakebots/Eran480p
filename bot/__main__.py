@@ -7,7 +7,7 @@ from pyrogram.types import CallbackQuery
 
 from bot import (
     APP_ID, API_HASH, AUTH_USERS, DOWNLOAD_LOCATION, LOGGER, TG_BOT_TOKEN, BOT_USERNAME, SESSION_NAME, data, app, AUTH_CHATS, 
-    crf, resolution, audio_b, preset, codec
+    crf, resolution, audio_b, preset, codec, audio
 )
 from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo
 from bot.helper_funcs.database import db
@@ -26,6 +26,7 @@ codec.append("libx264")
 resolution.append("854x480")
 preset.append("veryfast")
 audio_b.append("70k")
+audio.append("AAC")
 
 uptime = dt.now()
 
@@ -96,7 +97,7 @@ if __name__ == "__main__":
         else:
             await message.reply_text("🔒 Admin Only")
 
-    @app.on_message(filters.incoming & filters.command(["audio", f"audio@{BOT_USERNAME}"]))
+    @app.on_message(filters.incoming & filters.command(["audio_b", f"audio@{BOT_USERNAME}"]))
     async def changea(app, message):
         if message.chat.id in AUTH_USERS:
             aud = message.text.split(" ", maxsplit=1)[1]
@@ -153,6 +154,13 @@ if __name__ == "__main__":
             await sysinfo(message)
         else:
             await message.reply_text("🔒 Admin Only")
+
+    @app.on_message(filters.incoming & filters.command(["audio_b", f"audio@{BOT_USERNAME}"]))
+    async def changea(app, message):
+        if message.chat.id in AUTH_USERS:
+            aud = message.text.split(" ", maxsplit=1)[1]
+            audio.insert(0, f"{aud}")
+            await message.reply_text(f"🎵 I will be using : {aud} audio")
 
     @app.on_message(filters.incoming & filters.command(["cancel", f"cancel@{BOT_USERNAME}"]))
     async def cancel_handler(app, message):
