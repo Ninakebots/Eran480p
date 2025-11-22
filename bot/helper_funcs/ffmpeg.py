@@ -263,7 +263,7 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         with open(progress_file, 'w') as f:
             f.write("")
 
-        if not crf:
+    if not crf:
         crf.append("24")
     if not codec:
         codec.append("libx264")
