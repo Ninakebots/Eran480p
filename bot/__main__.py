@@ -21,9 +21,9 @@ from bot.commands import Command
 logging.getLogger("pymongo").setLevel(logging.WARNING)
 logging.getLogger("motor").setLevel(logging.WARNING)
 
-crf.append("26")
+crf.append("25")
 codec.append("libx264")
-resolution.append("1280x720")
+resolution.append("1920x1080")
 preset.append("veryfast")
 audio_b.append("48k")
 
