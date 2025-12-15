@@ -21,11 +21,11 @@ from bot.commands import Command
 logging.getLogger("pymongo").setLevel(logging.WARNING)
 logging.getLogger("motor").setLevel(logging.WARNING)
 
-crf.append("26")
+crf.append("27")
 codec.append("libx264")
-resolution.append("1920x1080")
+resolution.append("854x480")
 preset.append("veryfast")
-audio_b.append("70k")
+audio_b.append("48k")
 
 uptime = dt.now()
 
