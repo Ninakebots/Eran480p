@@ -21,10 +21,8 @@ from bot import (
     crf,
     resolution,
     audio_b,
-    audio,
     preset,
     codec,
-    audio_codec_list,
     pid_list
 )
 
@@ -239,7 +237,7 @@ def validate_video_file(filepath):
 
 # =================== Main convert_video1 Function ===================
 
-async def convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://i.ibb.co/5WXG62k3/jsorg.jpg'):
+async def convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://i.ibb.co/HDsG3K4z/jsorg.jpg'):
     if not os.path.exists(video_file):
         LOGGER.error(f"Video file not found: {video_file}")
         return None
@@ -263,7 +261,6 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         with open(progress_file, 'w') as f:
             f.write("")
 
-        # Ensure all settings have values
         if not crf:
             crf.append("24")
         if not codec:
@@ -274,8 +271,6 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
             preset.append("veryfast")
         if not audio_b:
             audio_b.append("35k")
-        if not audio_codec_list:
-            audio_codec_list.append("aac")
 
         cmd = [
             'ffmpeg', '-hide_banner', '-loglevel', 'warning', '-progress', progress_file,
@@ -283,7 +278,7 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
             '-filter_complex', '[1:v]colorkey=0x000000:0.1:0.1[wm]; [0:v][wm]overlay=10:10',
             '-map', '0:a?', '-map', '0:s?', '-c:v', codec[0],
             '-crf', crf[0], '-preset', preset[0], '-b:v', '150k',
-            '-c:a', audio_codec_list[0], '-b:a', audio_b[0], '-pix_fmt', 'yuv420p', '-s', resolution[0],
+            '-c:a', 'libopus', '-b:a', audio_b[0], '-pix_fmt', 'yuv420p', '-s', resolution[0],
             '-metadata', 'title=', '-y', temp_output
         ]
 
