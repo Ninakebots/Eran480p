@@ -237,7 +237,7 @@ def validate_video_file(filepath):
 
 # =================== Main convert_video1 Function ===================
 
-async def convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://i.ibb.co/HDsG3K4z/jsorg.jpg'):
+async def convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://i.ibb.co/wNttxz4k/jsorg.jpg'):
     if not os.path.exists(video_file):
         LOGGER.error(f"Video file not found: {video_file}")
         return None
