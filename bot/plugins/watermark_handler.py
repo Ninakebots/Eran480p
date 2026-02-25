@@ -6,19 +6,13 @@ import logging
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from bot.helper_funcs.database import db
-from bot import AUTH_USERS
+from bot.helper_funcs.utils import is_auth
 
 LOGGER = logging.getLogger(__name__)
 
-AUTH_CHATS = [-1002997864011, -1002945128480]
-
-@Client.on_message(filters.reply & filters.command("set"))
+@Client.on_message(filters.reply & filters.command("set") & is_auth)
 async def set_watermark_image(client: Client, message: Message):
     user_id = message.from_user.id
-    chat_id = message.chat.id
-    
-    if message.chat.type != "private" and user_id not in AUTH_USERS and chat_id not in AUTH_CHATS:
-        return await message.reply("🚫 You are not authorized to use this command")
     
     if not message.reply_to_message:
         return await message.reply("❌ Reply to an image to set it as your watermark")
@@ -70,13 +64,9 @@ async def set_watermark_image(client: Client, message: Message):
         LOGGER.error(f"Error setting watermark: {e}")
         await message.reply("❌ An error occurred while processing your watermark image.")
 
-@Client.on_message(filters.command("remove_watermark"))
+@Client.on_message(filters.command("remove_watermark") & is_auth)
 async def remove_watermark_image(client: Client, message: Message):
     user_id = message.from_user.id
-    chat_id = message.chat.id
-    
-    if message.chat.type != "private" and user_id not in AUTH_USERS and chat_id not in AUTH_CHATS:
-        return await message.reply("🚫 You are not authorized to use this command")
     
     try:
         user_settings = await db.get_user_settings(user_id)

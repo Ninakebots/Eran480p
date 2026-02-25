@@ -1,7 +1,8 @@
 from bot.get_cfg import get_config
+from bot.config import Config
 
 class Localisation:
-    START_TEXT = "Hᴇʟʟᴏ, \n<blockquote>Tʜɪꜱ ɪꜱ ᴀ Tᴇʟᴇɢʀᴀᴍ <b>Video Encoder Bot</b>. \n\n<b>Pʟᴇᴀꜱᴇ Sᴇɴᴅ ᴍᴇ ᴀɴʏ Tᴇʟᴇɢʀᴀᴍ Bɪɢ Vɪᴅᴇᴏ Fɪʟᴇ ɪ ᴡɪʟʟ Cᴏᴍᴘʀᴇꜱꜱ Iᴛ ᴀꜱ  Sᴍᴀʟʟ Vɪᴅᴇᴏ Fɪʟᴇ!</b> \n\n/help Fᴏʀ Mᴏʀᴇ Dᴇᴛᴀɪʟꜱ.</blockquote> \n✨ Eɴᴊᴏʏ....."
+    START_TEXT = Config.START_MESSAGE
    
     ABS_TEXT = " Please don't be selfish."
     
@@ -40,10 +41,8 @@ class Localisation:
     
     FF_MPEG_RO_BOT_STOR_AGE_ALREADY_EXISTS = "⚠️ Already one Process going on! ⚠️ \n\nCheck Live Status on Encoder Logs ."
     
-    HELP_MESSAGE = get_config(
-        "STRINGS_HELP_MESSAGE",
-        "Hi, I am Video Compressor Bot \n\n1. Send me your telegram big video file \n2. Reply to the file with: `/compress 50` \n\nMaintained By line @SECRECT_BOT_UPDATES"
-    )
+    HELP_MESSAGE = Config.HELP_MESSAGE
+    ABOUT_TEXT = Config.ABOUT_MESSAGE
     WRONG_MESSAGE = get_config(
         "STRINGS_WRONG_MESSAGE",
         "current CHAT ID: <code>{CHAT_ID}</code>"

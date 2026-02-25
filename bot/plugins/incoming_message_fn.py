@@ -18,6 +18,7 @@ from bot import (
   data,
   app  
 )
+from bot.config import Config
 from bot.helper_funcs.ffmpeg import (
   convert_video,
   convert_video1,  # Add this line
@@ -97,18 +98,33 @@ async def get_video_duration_and_bitrate(file_path):
             return 0, 0
 
 async def incoming_start_message_f(bot, update):
-    await bot.send_message(
-        chat_id=update.chat.id,
-        text=Localisation.START_TEXT,
-        reply_markup=InlineKeyboardMarkup(
-            [
+    if Config.START_PIC:
+        await bot.send_photo(
+            chat_id=update.chat.id,
+            photo=Config.START_PIC,
+            caption=Localisation.START_TEXT,
+            reply_markup=InlineKeyboardMarkup(
                 [
-                    InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
+                    [
+                        InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
+                    ]
                 ]
-            ]
-        ),
-        reply_to_message_id=update.id,
-    )
+            ),
+            reply_to_message_id=update.id,
+        )
+    else:
+        await bot.send_message(
+            chat_id=update.chat.id,
+            text=Localisation.START_TEXT,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
+                    ]
+                ]
+            ),
+            reply_to_message_id=update.id,
+        )
     
 async def incoming_compress_message_f(update):
     isAuto = True

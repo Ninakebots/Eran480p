@@ -37,6 +37,12 @@ class Config(object):
     UN_FINISHED_PROGRESS_STR = get_config("UN_FINISHED_PROGRESS_STR", "▢")
     LOG_FILE_ZZGEVC = get_config("LOG_FILE_ZZGEVC", "Log.txt")
     SHOULD_USE_BUTTONS = get_config("SHOULD_USE_BUTTONS", False)
+
+    # Custom Messages
+    START_PIC = get_config("START_PIC", "")
+    START_MESSAGE = get_config("START_MESSAGE", "Hᴇʟʟᴏ, \n<blockquote>Tʜɪꜱ ɪꜱ ᴀ Tᴇʟᴇɢʀᴀᴍ <b>Video Encoder Bot</b>. \n\n<b>Pʟᴇᴀꜱᴇ Sᴇɴᴅ ᴍᴇ ᴀɴʏ Tᴇʟᴇɢʀᴀᴍ Bɪɢ Vɪᴅᴇᴏ Fɪʟᴇ ɪ ᴡɪʟʟ Cᴏᴍᴘʀᴇꜱꜱ Iᴛ ᴀꜱ  Sᴍᴀʟʟ Vɪᴅᴇᴏ Fɪʟᴇ!</b> \n\n/help Fᴏʀ Mᴏʀᴇ Dᴇᴛᴀɪʟꜱ.</blockquote> \n✨ Eɴᴊᴏʏ.....")
+    HELP_MESSAGE = get_config("HELP_MESSAGE", "Hi, I am Video Compressor Bot \n\n1. Send me your telegram big video file \n2. Reply to the file with: `/compress 50` \n\nMaintained By line @SECRECT_BOT_UPDATES")
+    ABOUT_MESSAGE = get_config("ABOUT_MESSAGE", "<blockquote><b>Mʏ Nᴀᴍᴇ:</b> Zᴀɴɪ Eɴᴄᴏᴅᴇʀ Bᴏᴛ\n<b>Lᴀɴɢᴜᴀɢᴇ:</b> Pʏᴛʜᴏɴ\n<b>Lɪʙʀᴀʀʏ:</b> Pʏʀᴏɢʀᴀᴍ\n<b>Dᴇᴠᴇʟᴏᴘᴇʀ:</b> @TheAlphaBotz</blockquote>")
     
     # MongoDB Settings
     MONGODB_URL = get_config(
