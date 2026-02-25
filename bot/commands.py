@@ -25,3 +25,5 @@ class Command:
     LIST = "list"
     SPEEDTEST = "speedtest"
     SYSINFO = "sysinfo"
+    SAVETHUMBNAIL = "savethumbnail"
+    DELETETHUMBNAIL = "deletethumbnail"

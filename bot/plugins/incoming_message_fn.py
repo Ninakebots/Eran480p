@@ -23,7 +23,8 @@ from bot.helper_funcs.ffmpeg import (
   convert_video1,  # Add this line
   media_info,
   take_screen_shot,
-  get_duration
+  get_duration,
+  get_thumbnail
 )
 from bot.helper_funcs.display_progress import (
   progress_for_pyrogram,
@@ -194,11 +195,18 @@ async def incoming_compress_message_f(update):
             
         screenshot_time = duration / 2 if duration > 0 else 60
         
-        thumb_image_path = take_screen_shot(
-            saved_file_path,
-            os.path.dirname(os.path.abspath(saved_file_path)),
-            screenshot_time
-        )
+        custom_thumb = os.path.join("thumbnails", f"{update.from_user.id}.jpg")
+        if os.path.exists(custom_thumb):
+            thumb_image_path = custom_thumb
+            is_custom_thumb = True
+        else:
+            thumb_image_path = os.path.join(DOWNLOAD_LOCATION, f"thumb_{int(time.time())}.jpg")
+            thumb_image_path = get_thumbnail(
+                saved_file_path,
+                thumb_image_path,
+                time_offset=str(screenshot_time)
+            )
+            is_custom_thumb = False
         
         await download_start.delete()
         compress_start = await bot.send_message(chat_id, f"<blockquote>**𝙴𝚗𝚌𝚘𝚍𝚒𝚗𝚐 𝚅𝚒𝚍𝚎𝚘...⚙**</blockquote>")
@@ -233,7 +241,7 @@ async def incoming_compress_message_f(update):
                 document=o,
                 caption=caption,
                 force_document=True,
-                thumb="thumb.jpg",
+                thumb=thumb_image_path,
                 reply_to_message_id=update.id,
                 progress=progress_for_pyrogram,
                 progress_args=(
@@ -263,6 +271,14 @@ async def incoming_compress_message_f(update):
                 await upload.edit_caption(caption=upload.caption.replace('{}', uploaded_time))
             except:
                 pass
+
+            # Cleanup
+            if not is_custom_thumb and thumb_image_path and os.path.exists(thumb_image_path):
+                os.remove(thumb_image_path)
+            if o and os.path.exists(o):
+                os.remove(o)
+            if saved_file_path and os.path.exists(saved_file_path):
+                os.remove(saved_file_path)
         else:
             try:
                 await sent_message.edit_text(text="⚠️ Cᴏᴍᴘʀᴇꜱꜱɪᴏɴ Fᴀɪʟᴇᴅ ⚠️")

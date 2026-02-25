@@ -59,4 +59,45 @@ class Database:
             LOGGER.error(f"Error removing watermark: {e}")
             return False
 
+    async def update_user_setting(self, user_id: int, key: str, value) -> bool:
+        try:
+            await self.collection.update_one(
+                {"user_id": user_id},
+                {"$set": {key: value}},
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            LOGGER.error(f"Error updating user setting {key}: {e}")
+            return False
+
+    async def get_user_settings(self, user_id: int) -> dict:
+        try:
+            result = await self.collection.find_one({"user_id": user_id})
+            return result if result else {}
+        except Exception as e:
+            LOGGER.error(f"Error getting user settings: {e}")
+            return {}
+
+    async def update_user_data(self, user_id: int, data: dict) -> bool:
+        try:
+            await self.collection.update_one(
+                {"user_id": user_id},
+                {"$set": data},
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            LOGGER.error(f"Error updating user data: {e}")
+            return False
+
+    async def get_user_data(self, user_id: int) -> dict:
+        return await self.get_user_settings(user_id)
+
 db = Database()
+
+async def get_user_data(user_id: int) -> dict:
+    return await db.get_user_data(user_id)
+
+async def update_user_data(user_id: int, data: dict) -> bool:
+    return await db.update_user_data(user_id, data)
