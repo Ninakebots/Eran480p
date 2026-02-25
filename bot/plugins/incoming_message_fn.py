@@ -107,6 +107,10 @@ async def incoming_start_message_f(bot, update):
                 [
                     [
                         InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
+                    ],
+                    [
+                        InlineKeyboardButton(Localisation.HELP_BUTTON, callback_data="help"),
+                        InlineKeyboardButton(Localisation.ABOUT_BUTTON, callback_data="about")
                     ]
                 ]
             ),
@@ -120,6 +124,10 @@ async def incoming_start_message_f(bot, update):
                 [
                     [
                         InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
+                    ],
+                    [
+                        InlineKeyboardButton(Localisation.HELP_BUTTON, callback_data="help"),
+                        InlineKeyboardButton(Localisation.ABOUT_BUTTON, callback_data="about")
                     ]
                 ]
             ),
@@ -229,14 +237,29 @@ async def incoming_compress_message_f(update):
         await sent_message.edit_text(text=Localisation.COMPRESS_START)
         
         c_start = time.time()
-        o = await convert_video1(
-            video,
-            DOWNLOAD_LOCATION, 
-            duration, 
-            bot, 
-            sent_message, 
-            compress_start
-        )
+
+        user_id = update.from_user.id
+        watermark_url = await db.get_watermark_url(user_id)
+
+        if watermark_url:
+            o = await convert_video1(
+                video,
+                DOWNLOAD_LOCATION,
+                duration,
+                bot,
+                sent_message,
+                compress_start,
+                watermark_url=watermark_url
+            )
+        else:
+            o = await convert_video1(
+                video,
+                DOWNLOAD_LOCATION,
+                duration,
+                bot,
+                sent_message,
+                compress_start
+            )
         
         compressed_time = TimeFormatter((time.time() - c_start)*1000)
         LOGGER.info(o)

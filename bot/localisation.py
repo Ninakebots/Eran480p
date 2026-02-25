@@ -43,6 +43,9 @@ class Localisation:
     
     HELP_MESSAGE = Config.HELP_MESSAGE
     ABOUT_TEXT = Config.ABOUT_MESSAGE
+    HELP_BUTTON = "Help 🛠"
+    ABOUT_BUTTON = "About ℹ️"
+    BACK_BUTTON = "Back 🔙"
     WRONG_MESSAGE = get_config(
         "STRINGS_WRONG_MESSAGE",
         "current CHAT ID: <code>{CHAT_ID}</code>"

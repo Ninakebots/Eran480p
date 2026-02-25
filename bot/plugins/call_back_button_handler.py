@@ -23,6 +23,45 @@ async def button(bot, update: CallbackQuery):
     except:
         g = False
 
+    if cb_data == "help":
+        await update.message.edit_text(
+            text=Localisation.HELP_MESSAGE,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton(Localisation.BACK_BUTTON, callback_data="start_back")]
+                ]
+            )
+        )
+        return
+
+    elif cb_data == "about":
+        await update.message.edit_text(
+            text=Localisation.ABOUT_TEXT,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton(Localisation.BACK_BUTTON, callback_data="start_back")]
+                ]
+            )
+        )
+        return
+
+    elif cb_data == "start_back":
+        await update.message.edit_text(
+            text=Localisation.START_TEXT,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
+                    ],
+                    [
+                        InlineKeyboardButton(Localisation.HELP_BUTTON, callback_data="help"),
+                        InlineKeyboardButton(Localisation.ABOUT_BUTTON, callback_data="about")
+                    ]
+                ]
+            )
+        )
+        return
+
     if cb_data.startswith("cancel_"):
         pid = int(cb_data.split("_")[1])
         if pid in pid_list:
@@ -54,8 +93,8 @@ async def button(bot, update: CallbackQuery):
                     json.dump(statusMsg, f, indent=2)
                     if 'pid' in statusMsg.keys():
                         try:
-                            os.kill(statusMsg["pid"], signal.SIGSTOP)
-                            os.kill(pid_list[0], signal.SIGSTOP)
+                            os.kill(statusMsg["pid"], signal.SIGTERM)
+                            os.kill(pid_list[0], signal.SIGTERM)
                             del pid_list[0]
                             os.system("rm -rf downloads/*")
                             await bot.delete_messages(update.message.chat.id, statusMsg["message"])

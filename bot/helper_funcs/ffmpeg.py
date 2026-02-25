@@ -578,3 +578,41 @@ async def get_media_info_text(saved_file_path):
     except Exception as e:
         LOGGER.error(f"Error generating media info text: {e}")
         return f"Error: {e}"
+
+async def merge_videos(video_list, output_path):
+    try:
+        if not video_list:
+            return None
+
+        # Use concat filter to handle different resolutions/formats
+        # This is slower but more robust than concat demuxer
+        input_args = []
+        for v in video_list:
+            input_args.extend(['-i', v])
+
+        filter_complex = ""
+        for i in range(len(video_list)):
+            filter_complex += f"[{i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}];"
+
+        for i in range(len(video_list)):
+            filter_complex += f"[v{i}][{i}:a]"
+
+        filter_complex += f"concat=n={len(video_list)}:v=1:a=1[v][a]"
+
+        cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'error'] + input_args + [
+            '-filter_complex', filter_complex,
+            '-map', '[v]', '-map', '[a]',
+            '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast',
+            '-c:a', 'aac', '-b:a', '128k',
+            '-y', output_path
+        ]
+
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+
+        if process.returncode == 0 and os.path.exists(output_path):
+            return output_path
+        return None
+    except Exception as e:
+        LOGGER.error(f"Error merging videos: {e}")
+        return None

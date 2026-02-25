@@ -52,6 +52,8 @@ async def execute_task(task_info):
         await handle_trim_task(message, options)
     elif task_type == 'mediainfo':
         await handle_mediainfo_task(message, options)
+    elif task_type == 'merge':
+        await handle_merge_task(message, options)
     else:
         LOGGER.warning(f"Unknown task type: {task_type}")
 
@@ -70,8 +72,10 @@ async def handle_compression_task(update, task_type, options):
 
     # Temporarily override globals for this task
     # This is a bit hacky but consistent with existing code
-    old_res = global_resolution[0] if global_resolution else "1280x720"
-    if global_resolution:
+    old_res_existed = len(global_resolution) > 0
+    old_res = global_resolution[0] if old_res_existed else "1280x720"
+
+    if old_res_existed:
         global_resolution[0] = res
     else:
         global_resolution.append(res)
@@ -81,7 +85,10 @@ async def handle_compression_task(update, task_type, options):
         await incoming_compress_message_f(update)
     finally:
         # Restore global
-        global_resolution[0] = old_res
+        if old_res_existed:
+            global_resolution[0] = old_res
+        else:
+            global_resolution.clear()
 
 async def handle_extract_audio_task(message, options):
     sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰᴏʀ ᴀᴜᴅɪᴏ ᴇxᴛʀᴀᴄᴛɪᴏɴ...📥", reply_to_message_id=message.id)
@@ -233,3 +240,57 @@ async def handle_mediainfo_task(message, options):
         if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
         await sent_message.edit_text(f"❌ Error: {e}")
+
+async def handle_merge_task(message, options):
+    video_messages = options.get('video_messages', [])
+    if not video_messages:
+        return await bot.send_message(chat_id=message.chat.id, text="❌ No videos found for merge.")
+
+    sent_message = await bot.send_message(chat_id=message.chat.id, text=f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ {len(video_messages)} 𝗏𝗂𝖽𝖾𝗈𝗌 𝖿𝗈𝗋 𝗆𝖾𝗋𝗀𝖾...📥", reply_to_message_id=message.id)
+
+    downloaded_videos = []
+    try:
+        for i, msg in enumerate(video_messages):
+            await sent_message.edit_text(f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗏𝗂𝖽𝖾𝗈 {i+1}/{len(video_messages)}...📥")
+            video_path = await bot.download_media(
+                message=msg,
+                progress=progress_for_pyrogram,
+                progress_args=(bot, f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗏𝗂𝖽𝖾𝗈 {i+1}...📥", sent_message, time.time())
+            )
+            if video_path:
+                downloaded_videos.append(video_path)
+            else:
+                await sent_message.edit_text(f"❌ Failed to download video {i+1}. Aborting.")
+                for p in downloaded_videos:
+                    if os.path.exists(p): os.remove(p)
+                return
+
+        await sent_message.edit_text("🎬 M𝖾𝗋𝗀𝗂𝗇𝗀 𝗏𝗂𝖽𝖾𝗈𝗌...⚙️\nThis may take a while as it re-encodes to ensure compatibility.")
+
+        from bot.helper_funcs.ffmpeg import merge_videos
+        output_path = os.path.join(DOWNLOAD_LOCATION, f"merged_{int(time.time())}.mp4")
+
+        result = await merge_videos(downloaded_videos, output_path)
+
+        if result and os.path.exists(result):
+            await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝗆𝖾𝗋𝗀𝖾𝖽 𝗏𝗂𝖽𝖾𝗈...")
+            await bot.send_video(
+                chat_id=message.chat.id,
+                video=result,
+                caption=f"✅ Merged {len(video_messages)} videos successfully!",
+                reply_to_message_id=message.id,
+                progress=progress_for_pyrogram,
+                progress_args=(bot, "Uᴘʟᴏᴀᴅɪɴɢ...📤", sent_message, time.time())
+            )
+            await sent_message.delete()
+        else:
+            await sent_message.edit_text("❌ Merging failed.")
+
+    except Exception as e:
+        LOGGER.error(f"Error in handle_merge_task: {e}")
+        await sent_message.edit_text(f"❌ Error: {e}")
+    finally:
+        for p in downloaded_videos:
+            if p and os.path.exists(p): os.remove(p)
+        if 'output_path' in locals() and os.path.exists(output_path):
+            os.remove(output_path)
