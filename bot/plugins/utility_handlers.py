@@ -1,14 +1,12 @@
 import os
 from pyrogram import filters
-from bot import AUTH_USERS, BOT_USERNAME, data, app
+from bot import BOT_USERNAME, data, app
 from bot.commands import Command
-from bot.helper_funcs.utils import sysinfo
+from bot.helper_funcs.utils import sysinfo, is_auth
 from bot.localisation import Localisation
 
-@app.on_message(filters.incoming & filters.command([Command.LIST, f"{Command.LIST}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.LIST, f"{Command.LIST}@{BOT_USERNAME}"]) & is_auth)
 async def list_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     if not data:
         return await message.reply_text("📚 Queue is empty.")
 
@@ -20,16 +18,12 @@ async def list_handler(client, message):
 
     await message.reply_text(text)
 
-@app.on_message(filters.incoming & filters.command([Command.SYSINFO, f"{Command.SYSINFO}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.SYSINFO, f"{Command.SYSINFO}@{BOT_USERNAME}"]) & is_auth)
 async def sysinfo_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     await sysinfo(message)
 
-@app.on_message(filters.incoming & filters.command([Command.SPEEDTEST, f"{Command.SPEEDTEST}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.SPEEDTEST, f"{Command.SPEEDTEST}@{BOT_USERNAME}"]) & is_auth)
 async def speedtest_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     sent = await message.reply_text("🏎 Running speed test...")
     import subprocess
     try:
@@ -38,10 +32,8 @@ async def speedtest_handler(client, message):
     except Exception as e:
         await sent.edit_text(f"❌ speedtest-cli failed or not installed.\nError: {e}")
 
-@app.on_message(filters.incoming & filters.command([Command.CANCEL, f"{Command.CANCEL}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.CANCEL, f"{Command.CANCEL}@{BOT_USERNAME}"]) & is_auth)
 async def cancel_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     args = message.text.split(" ")
     if len(args) > 1:
         try:
@@ -72,10 +64,8 @@ async def cancel_handler(client, message):
         from bot.plugins.incoming_message_fn import incoming_cancel_message_f
         await incoming_cancel_message_f(client, message)
 
-@app.on_message(filters.incoming & filters.command([Command.SAVETHUMBNAIL, f"{Command.SAVETHUMBNAIL}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.SAVETHUMBNAIL, f"{Command.SAVETHUMBNAIL}@{BOT_USERNAME}"]) & is_auth)
 async def save_thumbnail_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not reply.photo:
         return await message.reply_text("❌ Reply to a photo to save it as your custom thumbnail.")
@@ -88,10 +78,8 @@ async def save_thumbnail_handler(client, message):
     await client.download_media(message=reply.photo, file_name=thumb_path)
     await message.reply_text(Localisation.SAVED_CUSTOM_THUMB_NAIL)
 
-@app.on_message(filters.incoming & filters.command([Command.DELETETHUMBNAIL, f"{Command.DELETETHUMBNAIL}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.DELETETHUMBNAIL, f"{Command.DELETETHUMBNAIL}@{BOT_USERNAME}"]) & is_auth)
 async def delete_thumbnail_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     thumb_path = os.path.join("thumbnails", f"{message.from_user.id}.jpg")
     if os.path.exists(thumb_path):
         os.remove(thumb_path)

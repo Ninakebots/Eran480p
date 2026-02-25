@@ -1,4 +1,4 @@
-from bot.helper_funcs.utils import on_task_complete, add_task
+from bot.helper_funcs.utils import on_task_complete, add_task, is_auth
 from bot.helper_funcs.database import db
 from bot import AUTH_USERS, DOWNLOAD_LOCATION, LOG_CHANNEL, data, pid_list
 from pyrogram.types import CallbackQuery
@@ -43,7 +43,9 @@ async def button(bot, update: CallbackQuery):
 
     if (update.from_user.id == update.message.reply_to_message.from_user.id) or g:
         if cb_data == "fuckingdo":
-            if update.from_user.id in AUTH_USERS:
+            # Check if user is an admin or authorized in DB
+            is_authorized = await is_auth(bot, update)
+            if is_authorized:
                 status = DOWNLOAD_LOCATION + "/status.json"
                 with open(status, 'r+') as f:
                     statusMsg = json.load(f)

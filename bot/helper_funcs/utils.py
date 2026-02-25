@@ -10,7 +10,9 @@ logging.getLogger("pyrogram").setLevel(logging.WARNING)
 LOGGER = logging.getLogger(__name__)
 
 import os, asyncio, pyrogram, psutil, platform, time, re
-from bot import data
+from bot import data, AUTH_USERS, AUTH_CHATS
+from bot.helper_funcs.database import db
+from pyrogram import filters
 from pyrogram.types import Message
 from psutil import disk_usage, cpu_percent, virtual_memory, Process as psprocess
 
@@ -121,6 +123,34 @@ def safe_float_convert(value, default=0.0):
         return default
     except (ValueError, TypeError):
         return default
+
+async def auth_filter(_, __, update):
+    user_id = update.from_user.id if update.from_user else None
+    if hasattr(update, "chat") and update.chat:
+        chat_id = update.chat.id
+    elif hasattr(update, "message") and update.message and update.message.chat:
+        chat_id = update.message.chat.id
+    else:
+        chat_id = None
+
+    # Check hardcoded admins
+    if user_id in AUTH_USERS or chat_id in AUTH_USERS:
+        return True
+
+    # Check hardcoded chats
+    if chat_id in AUTH_CHATS:
+        return True
+
+    # Check database
+    if await db.is_chat_authorized(chat_id):
+        return True
+
+    if user_id and await db.is_chat_authorized(user_id):
+        return True
+
+    return False
+
+is_auth = filters.create(auth_filter)
 
 def safe_int_convert(value, default=0):
     try:

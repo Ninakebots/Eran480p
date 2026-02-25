@@ -1,22 +1,18 @@
 from pyrogram import filters
-from bot import AUTH_USERS, BOT_USERNAME, app
+from bot import BOT_USERNAME, app
 from bot.commands import Command
-from bot.helper_funcs.utils import add_to_queue
+from bot.helper_funcs.utils import add_to_queue, is_auth
 
-@app.on_message(filters.incoming & filters.command([Command.EXTRACT_AUDIO, f"{Command.EXTRACT_AUDIO}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.EXTRACT_AUDIO, f"{Command.EXTRACT_AUDIO}@{BOT_USERNAME}"]) & is_auth)
 async def extract_audio_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not (reply.video or reply.document):
         return await message.reply_text("❌ Reply to a video.")
     await message.reply_text("⏰ Added audio extraction task to queue...", quote=True)
     await add_to_queue(reply, "extract_audio")
 
-@app.on_message(filters.incoming & filters.command([Command.ADDAUDIO, f"{Command.ADDAUDIO}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.ADDAUDIO, f"{Command.ADDAUDIO}@{BOT_USERNAME}"]) & is_auth)
 async def add_audio_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not (reply.audio or reply.document):
         return await message.reply_text("❌ Reply to an audio file to add it to a video.")
@@ -31,20 +27,16 @@ async def add_audio_handler(client, message):
     await message.reply_text("⏰ Added add-audio task to queue...", quote=True)
     await add_to_queue(video_message, "add_audio", options={'audio_message': reply})
 
-@app.on_message(filters.incoming & filters.command([Command.REMAUDIO, f"{Command.REMAUDIO}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.REMAUDIO, f"{Command.REMAUDIO}@{BOT_USERNAME}"]) & is_auth)
 async def remaudio_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not (reply.video or reply.document):
         return await message.reply_text("❌ Reply to a video.")
     await message.reply_text("⏰ Added remove-audio task to queue...", quote=True)
     await add_to_queue(reply, "remove_audio")
 
-@app.on_message(filters.incoming & filters.command([Command.SUB, f"{Command.SUB}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.SUB, f"{Command.SUB}@{BOT_USERNAME}"]) & is_auth)
 async def sub_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not reply.document:
         return await message.reply_text("❌ Reply to a subtitle file (.srt/.ass).")
@@ -59,10 +51,8 @@ async def sub_handler(client, message):
     await message.reply_text("⏰ Added soft-sub task to queue...", quote=True)
     await add_to_queue(video_message, "add_soft_sub", options={'sub_message': reply})
 
-@app.on_message(filters.incoming & filters.command([Command.HSUB, f"{Command.HSUB}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.HSUB, f"{Command.HSUB}@{BOT_USERNAME}"]) & is_auth)
 async def hsub_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not reply.document:
         return await message.reply_text("❌ Reply to a subtitle file (.srt/.ass).")
@@ -77,20 +67,16 @@ async def hsub_handler(client, message):
     await message.reply_text("⏰ Added hard-sub task to queue...", quote=True)
     await add_to_queue(video_message, "add_hard_sub", options={'sub_message': reply})
 
-@app.on_message(filters.incoming & filters.command([Command.RSUB, f"{Command.RSUB}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.RSUB, f"{Command.RSUB}@{BOT_USERNAME}"]) & is_auth)
 async def rsub_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not (reply.video or reply.document):
         return await message.reply_text("❌ Reply to a video.")
     await message.reply_text("⏰ Added remove-sub task to queue...", quote=True)
     await add_to_queue(reply, "remove_sub")
 
-@app.on_message(filters.incoming & filters.command([Command.TRIM, f"{Command.TRIM}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.TRIM, f"{Command.TRIM}@{BOT_USERNAME}"]) & is_auth)
 async def trim_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not (reply.video or reply.document):
         return await message.reply_text("❌ Reply to a video.")
@@ -105,10 +91,8 @@ async def trim_handler(client, message):
     await message.reply_text(f"⏰ Added trim task ({start_time} - {end_time}) to queue...", quote=True)
     await add_to_queue(reply, "trim", options={'start_time': start_time, 'end_time': end_time})
 
-@app.on_message(filters.incoming & filters.command([Command.MEDIAINFO, f"{Command.MEDIAINFO}@{BOT_USERNAME}"]))
+@app.on_message(filters.incoming & filters.command([Command.MEDIAINFO, f"{Command.MEDIAINFO}@{BOT_USERNAME}"]) & is_auth)
 async def mediainfo_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return
     reply = message.reply_to_message
     if not reply or not (reply.video or reply.document):
         return await message.reply_text("❌ Reply to a video.")

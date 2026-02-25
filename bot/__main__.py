@@ -9,13 +9,15 @@ from bot import (
     APP_ID, API_HASH, AUTH_USERS, DOWNLOAD_LOCATION, LOGGER, TG_BOT_TOKEN, BOT_USERNAME, SESSION_NAME, data, app, AUTH_CHATS, 
     crf, resolution, audio_b, preset, codec
 )
-from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo
+from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo, is_auth
 from bot.helper_funcs.database import db
+from bot.localisation import Localisation
 from bot.plugins.incoming_message_fn import incoming_start_message_f, incoming_compress_message_f, incoming_cancel_message_f
 from bot.plugins.status_message_fn import eval_message_f, exec_message_f, upload_log_file
 from bot.plugins.encoding_handlers import *
 from bot.plugins.media_tools import *
 from bot.plugins.utility_handlers import *
+from bot.plugins.auth_handlers import *
 from bot.plugins.call_back_button_handler import button as admin_button_handler
 from bot.watermark_handlers import *
 from bot.commands import Command
@@ -124,21 +126,16 @@ if __name__ == "__main__":
         data.clear()
         await message.reply_text("📚 Queue cleared successfully")
 
-    @app.on_message(filters.incoming & (filters.video | filters.document))
+    @app.on_message(filters.incoming & (filters.video | filters.document) & is_auth)
     async def video_or_document_handler(app, message):
-        if message.chat.id not in AUTH_USERS:
-            return await message.reply_text("🚫 Not authorized")
         query = await message.reply_text("⏰ Added to queue...\nPlease be patient, compression will start soon", quote=True)
         from bot.helper_funcs.utils import add_to_queue
         await add_to_queue(message, "compress")
         await query.delete()
 
-    @app.on_message(filters.incoming & filters.command(["settings", f"settings@{BOT_USERNAME}"]))
+    @app.on_message(filters.incoming & filters.command(["settings", f"settings@{BOT_USERNAME}"]) & is_auth)
     async def settings(app, message):
-        if message.chat.id in AUTH_USERS:
-            await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}")
-        else:
-            await message.reply_text("🔒 Admin Only")
+        await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}")
 
 
     @app.on_message(filters.incoming & filters.command(["exec", f"exec@{BOT_USERNAME}"]))
@@ -153,7 +150,7 @@ if __name__ == "__main__":
     async def stop_handler(app, message):
         await on_task_complete()
 
-    @app.on_message(filters.incoming & filters.command(["help", f"help@{BOT_USERNAME}"]))
+    @app.on_message(filters.incoming & filters.command(["help", f"help@{BOT_USERNAME}"]) & is_auth)
     async def help_handler(app, message):
         stt = dt.now()
         ed = dt.now()
@@ -161,14 +158,12 @@ if __name__ == "__main__":
         ms = (ed - stt).microseconds / 1000
         p = f"Ping = {ms}ms 🌋"
         await message.reply_text(
-            f"Hi, I am Video Compressor Bot\n\n"
-            f"➥ Send me your Telegram files\n"
-            f"➥ I will encode them one by one using the queue feature\n"
-            f"➥ Use `/{Command.SET_WATERMARK} <image_url>` to set watermark\n"
-            f"➥ Use `/{Command.CHECK_WATERMARK}` to check current watermark\n"
-            f"➥ Use `/{Command.SET_WATERMARK} remove` to remove watermark\n\n"
-            f"Bot Uptime = {v} 🚀\n{p}"
+            Localisation.HELP_MESSAGE + f"\n\nBot Uptime = {v} 🚀\n{p}"
         )
+
+    @app.on_message(filters.incoming & filters.command(["about", f"about@{BOT_USERNAME}"]) & is_auth)
+    async def about_handler(app, message):
+        await message.reply_text(Localisation.ABOUT_TEXT)
 
     app.add_handler(CallbackQueryHandler(main_callback_handler))
     

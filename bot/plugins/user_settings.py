@@ -2,7 +2,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from bot.helper_funcs.menu_handler import menu_handler
 from bot.helper_funcs.database import get_user_data, update_user_data
-from bot import AUTH_USERS
+from bot.helper_funcs.utils import is_auth
 import asyncio
 import logging
 
@@ -12,19 +12,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@Client.on_message(filters.command("us"))
+@Client.on_message(filters.command("us") & is_auth)
 async def user_settings(client: Client, message: Message):
     user_id = message.from_user.id
-    chat_id = message.chat.id
     username = message.from_user.username or message.from_user.first_name
-
-    from bot.config import AUTH_CHATS
-    if (
-        message.chat.type != "private"
-        and chat_id not in AUTH_CHATS
-        and user_id not in AUTH_USERS
-    ):
-        return await message.reply("🚫 You are not authorized to use this command.")
 
     text, keyboard = await menu_handler.main_menu(user_id, username)
     await message.reply(text, reply_markup=keyboard)

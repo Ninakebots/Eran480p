@@ -3,7 +3,7 @@ import requests
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from bot.helper_funcs.database import db
-from bot.config import AUTH_CHATS, AUTH_USERS
+from bot.helper_funcs.utils import is_auth
 from bot.commands import Command
 import logging
 
@@ -29,7 +29,7 @@ def is_image_url(url: str) -> bool:
         image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff']
         return any(url.lower().endswith(ext) for ext in image_extensions)
 
-@Client.on_message(filters.command(Command.SET_WATERMARK) & (filters.chat(AUTH_CHATS) | filters.user(AUTH_USERS)))
+@Client.on_message(filters.command(Command.SET_WATERMARK) & is_auth)
 async def set_watermark(client: Client, message: Message):
     user_id = message.from_user.id
     
@@ -92,7 +92,7 @@ async def set_watermark(client: Client, message: Message):
         LOGGER.error(f"Error in set_watermark command: {e}")
         await message.reply("❌ An error occurred while setting watermark. Please try again.")
 
-@Client.on_message(filters.command(Command.CHECK_WATERMARK) & (filters.chat(AUTH_CHATS) | filters.user(AUTH_USERS)))
+@Client.on_message(filters.command(Command.CHECK_WATERMARK) & is_auth)
 async def check_watermark(client: Client, message: Message):
     user_id = message.from_user.id
     

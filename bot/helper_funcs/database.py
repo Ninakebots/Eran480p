@@ -13,7 +13,8 @@ class Database:
     def __init__(self):
         self.client = None
         self.db = None
-        self.collection = None
+        self.watermarks = None
+        self.auth = None
         
     async def connect(self):
         try:
@@ -22,7 +23,8 @@ class Database:
                 
             self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL, serverSelectionTimeoutMS=5000)
             self.db = self.client.bot_database
-            self.collection = self.db.watermarks
+            self.watermarks = self.db.watermarks
+            self.auth = self.db.authorized_chats
             
             await self.client.admin.command('ping')
             LOGGER.info("Connected to MongoDB successfully")
@@ -33,7 +35,7 @@ class Database:
     async def set_watermark_url(self, user_id: int, watermark_url: str) -> bool:
         try:
             from datetime import datetime
-            await self.collection.update_one(
+            await self.watermarks.update_one(
                 {"user_id": user_id},
                 {"$set": {"watermark_url": watermark_url, "updated_at": datetime.utcnow()}},
                 upsert=True
@@ -45,7 +47,7 @@ class Database:
     
     async def get_watermark_url(self, user_id: int) -> Optional[str]:
         try:
-            result = await self.collection.find_one({"user_id": user_id})
+            result = await self.watermarks.find_one({"user_id": user_id})
             return result["watermark_url"] if result else None
         except Exception as e:
             LOGGER.error(f"Error getting watermark URL: {e}")
@@ -53,7 +55,7 @@ class Database:
     
     async def remove_watermark(self, user_id: int) -> bool:
         try:
-            await self.collection.delete_one({"user_id": user_id})
+            await self.watermarks.delete_one({"user_id": user_id})
             return True
         except Exception as e:
             LOGGER.error(f"Error removing watermark: {e}")
@@ -61,7 +63,7 @@ class Database:
 
     async def update_user_setting(self, user_id: int, key: str, value) -> bool:
         try:
-            await self.collection.update_one(
+            await self.watermarks.update_one(
                 {"user_id": user_id},
                 {"$set": {key: value}},
                 upsert=True
@@ -73,7 +75,7 @@ class Database:
 
     async def get_user_settings(self, user_id: int) -> dict:
         try:
-            result = await self.collection.find_one({"user_id": user_id})
+            result = await self.watermarks.find_one({"user_id": user_id})
             return result if result else {}
         except Exception as e:
             LOGGER.error(f"Error getting user settings: {e}")
@@ -81,7 +83,7 @@ class Database:
 
     async def update_user_data(self, user_id: int, data: dict) -> bool:
         try:
-            await self.collection.update_one(
+            await self.watermarks.update_one(
                 {"user_id": user_id},
                 {"$set": data},
                 upsert=True
@@ -89,6 +91,35 @@ class Database:
             return True
         except Exception as e:
             LOGGER.error(f"Error updating user data: {e}")
+            return False
+
+    # Authorization methods
+    async def authorize_chat(self, chat_id: int) -> bool:
+        try:
+            await self.auth.update_one(
+                {"chat_id": chat_id},
+                {"$set": {"is_authorized": True}},
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            LOGGER.error(f"Error authorizing chat {chat_id}: {e}")
+            return False
+
+    async def unauthorize_chat(self, chat_id: int) -> bool:
+        try:
+            await self.auth.delete_one({"chat_id": chat_id})
+            return True
+        except Exception as e:
+            LOGGER.error(f"Error unauthorizing chat {chat_id}: {e}")
+            return False
+
+    async def is_chat_authorized(self, chat_id: int) -> bool:
+        try:
+            result = await self.auth.find_one({"chat_id": chat_id})
+            return bool(result)
+        except Exception as e:
+            LOGGER.error(f"Error checking authorization for chat {chat_id}: {e}")
             return False
 
     async def get_user_data(self, user_id: int) -> dict:
