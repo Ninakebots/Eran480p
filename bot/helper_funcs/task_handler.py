@@ -174,7 +174,7 @@ async def handle_subtitles_task(message, options, sub_type):
         if sub_type == "soft":
             output_path = await add_soft_subtitles(video_path, sub_path, DOWNLOAD_LOCATION)
         else:
-            output_path = await add_hard_subtitles(video_path, sub_path, DOWNLOAD_LOCATION)
+            output_path = await add_hard_subtitles(video_path, sub_path, DOWNLOAD_LOCATION, bot, sent_message)
 
         if output_path:
             await bot.send_document(chat_id=message.chat.id, document=output_path, reply_to_message_id=message.id)
@@ -304,12 +304,18 @@ async def handle_merge_task(message, options):
                     if os.path.exists(p): os.remove(p)
                 return
 
-        await sent_message.edit_text("🎬 M𝖾𝗋𝗀𝗂𝗇𝗀 𝗏𝗂𝖽𝖾𝗈𝗌...⚙️\nThis may take a while as it re-encodes to ensure compatibility.")
+        await sent_message.edit_text("🎬 C𝖺𝗅𝖼𝗎𝗅𝖺𝗍𝗂𝗇𝗀 𝖽𝗎𝗋𝖺𝗍𝗂𝗈𝗇...⚙️")
+        from bot.helper_funcs.ffmpeg import get_duration, merge_videos
+        total_duration = 0
+        for vid in downloaded_videos:
+            total_duration += get_duration(vid)
 
-        from bot.helper_funcs.ffmpeg import merge_videos
+        if total_duration == 0:
+            total_duration = 1 # Avoid division by zero
+
         output_path = os.path.join(DOWNLOAD_LOCATION, f"merged_{int(time.time())}.mp4")
 
-        result = await merge_videos(downloaded_videos, output_path)
+        result = await merge_videos(downloaded_videos, output_path, bot, sent_message, total_duration)
 
         if result and os.path.exists(result):
             await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝗆𝖾𝗋𝗀𝖾𝖽 𝗏𝗂𝖽𝖾𝗈...")

@@ -249,7 +249,8 @@ async def incoming_compress_message_f(update):
                 bot,
                 sent_message,
                 compress_start,
-                watermark_url=watermark_url
+                watermark_url=watermark_url,
+                user_id=user_id
             )
         else:
             o = await convert_video1(
@@ -258,7 +259,8 @@ async def incoming_compress_message_f(update):
                 duration,
                 bot,
                 sent_message,
-                compress_start
+                compress_start,
+                user_id=user_id
             )
         
         compressed_time = TimeFormatter((time.time() - c_start)*1000)

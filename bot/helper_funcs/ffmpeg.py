@@ -237,208 +237,186 @@ def validate_video_file(filepath):
 
 # =================== Main convert_video1 Function ===================
 
-async def convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://i.ibb.co/pBHHTC7Z/jsorg.jpg'):
-    if not os.path.exists(video_file):
-        LOGGER.error(f"Video file not found: {video_file}")
-        return None
+async def run_ffmpeg_with_progress(cmd, total_time_safe, bot, message, description="Processing..."):
+    progress_file = os.path.join(DOWNLOAD_LOCATION, f"progress_{int(time.time() * 1000)}_{message.id}.txt")
 
-    total_time_safe = safe_float_convert(total_time)
-    if total_time_safe == 0:
-        total_time_safe = get_duration(video_file)
-    if total_time_safe == 0:
-        LOGGER.error("Could not determine video duration")
-        return None
+    # Add progress file to cmd
+    # cmd is a list, we need to find where to insert or just prepend
+    cmd = ['ffmpeg', '-progress', progress_file] + cmd[1:]
+
+    with open(progress_file, 'w') as f:
+        f.write("")
+
+    COMPRESSION_START_TIME = time.time()
+    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    LOGGER.info(f"FFmpeg process started PID: {process.pid}")
+    pid_list.insert(0, process.pid)
 
     try:
-        os.makedirs(output_directory, exist_ok=True)
-        kk = os.path.basename(video_file)
-        name, ext = os.path.splitext(kk)
-        temp_output = os.path.join(output_directory, f"{name}_temp.mkv")
-        final_output = os.path.join(output_directory, f"{name}.mkv")
-        progress_file = os.path.join(output_directory, "progress.txt")
-        status_file = os.path.join(output_directory, "status.json")
+        progress_msg = await bot.send_message(chat_id=message.chat.id, text=f"🚀 {description}", reply_to_message_id=message.id)
+    except:
+        progress_msg = None
 
-        with open(progress_file, 'w') as f:
-            f.write("")
+    encoding_complete = False
+    last_update_time = 0
 
-        if not crf:
-            crf.append("24")
-        if not codec:
-            codec.append("libx264")
-        if not resolution:
-            resolution.append("1920x1080")
-        if not preset:
-            preset.append("veryfast")
-        if not audio_b:
-            audio_b.append("35k")
-
-        cmd = [
-            'ffmpeg', '-hide_banner', '-loglevel', 'warning', '-progress', progress_file,
-            '-i', video_file, '-i', watermark_url,
-            '-filter_complex', '[1:v]colorkey=0x000000:0.1:0.1[wm]; [0:v][wm]overlay=10:10',
-            '-map', '0:a?', '-map', '0:s?', '-c:v', codec[0],
-            '-crf', crf[0], '-preset', preset[0], '-b:v', '150k',
-            '-c:a', 'libopus', '-b:a', audio_b[0], '-pix_fmt', 'yuv420p', '-s', resolution[0],
-            '-metadata', 'title=', '-y', temp_output
-        ]
-
-        COMPRESSION_START_TIME = time.time()
-        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        LOGGER.info(f"FFmpeg process started PID: {process.pid}")
-        pid_list.insert(0, process.pid)
-
-        status_data = {"pid": process.pid, "message": message.id}
-        with open(status_file, 'w') as f:
-            json.dump(status_data, f, indent=2)
-
-        try:
-            progress_msg = await bot.send_message(chat_id=message.chat.id, text="Starting compression...", reply_to_message_id=message.id)
-        except:
-            progress_msg = None
-
-        encoding_complete = False
-        last_update_time = 0
-        consecutive_errors = 0
-
+    try:
         while True:
-            try:
-                await asyncio.sleep(PROGRESSUPDATEINTERVAL)
+            await asyncio.sleep(PROGRESSUPDATEINTERVAL)
 
-                if process.returncode is not None:
-                    if process.returncode == 0:
-                        encoding_complete = True
-                    else:
-                        LOGGER.error(f"FFmpeg exited with code: {process.returncode}")
-                        try:
-                            stderr_output = await process.stderr.read()
-                            if stderr_output:
-                                LOGGER.error(f"FFmpeg stderr: {stderr_output.decode()}")
-                        except:
-                            pass
-                    break
-
-                if time.time() - COMPRESSION_START_TIME > FFMPEGTIMEOUT:
-                    LOGGER.error("Encoding timeout reached")
-                    process.terminate()
-                    break
-
-                if not os.path.exists(progress_file):
-                    continue
-
-                with open(progress_file, 'r') as f:
-                    content = f.read()
-                if not content.strip():
-                    continue
-
-                frame_match = re.findall(r'frame=(\d+)', content)
-                time_match = re.findall(r'out_time_ms=(\d+)', content)
-                speed_match = re.findall(r'speed=([\d.]+)x?', content)
-                progress_match = re.findall(r'progress=(\w+)', content)
-
-                frame = safe_int_convert(frame_match[-1] if frame_match else '1', 1)
-                elapsed_us = safe_int_convert(time_match[-1] if time_match else '0', 0)
-                speed_str = speed_match[-1] if speed_match else '1'
-                progress_status = progress_match[-1] if progress_match else ''
-
-                speed = safe_float_convert(speed_str, 0.1)
-                if speed == 0 or speed_str in ('N/A', '0'):
-                    speed = 0.1
-
-                if progress_status == 'end':
-                    LOGGER.info("Encoding completed successfully")
+            if process.returncode is not None:
+                if process.returncode == 0:
                     encoding_complete = True
-                    break
+                break
 
-                elapsed_time = safe_float_convert(elapsed_us / 1000000.0)
-                percentage = min(99, (elapsed_time / total_time_safe) * 100 if total_time_safe > 0 else 0)
+            if time.time() - COMPRESSION_START_TIME > FFMPEGTIMEOUT:
+                LOGGER.error("FFmpeg timeout reached")
+                process.terminate()
+                break
 
-                if speed > 0 and total_time_safe > elapsed_time:
-                    remaining_time = (total_time_safe - elapsed_time) / speed
-                    eta = TimeFormatter(remaining_time * 1000)
-                else:
-                    eta = "Calculating..."
+            if not os.path.exists(progress_file):
+                continue
 
-                execution_time = TimeFormatter((time.time() - COMPRESSION_START_TIME) * 1000)
-                progress_bar_length = 10
-                filled_bars = int(percentage / 10)
-                progress_str = f"{''.join(FINISHED_PROGRESS_STR for _ in range(filled_bars))}{''.join(UN_FINISHED_PROGRESS_STR for _ in range(progress_bar_length - filled_bars))}"
+            with open(progress_file, 'r') as f:
+                content = f.read()
+            if not content.strip():
+                continue
 
-                stats = f"""Progress: {progress_str} {percentage:.1f}%
+            frame_match = re.findall(r'frame=(\d+)', content)
+            time_match = re.findall(r'out_time_ms=(\d+)', content)
+            speed_match = re.findall(r'speed=([\d.]+)x?', content)
+            progress_match = re.findall(r'progress=(\w+)', content)
+
+            frame = safe_int_convert(frame_match[-1] if frame_match else '1', 1)
+            elapsed_us = safe_int_convert(time_match[-1] if time_match else '0', 0)
+            speed_str = speed_match[-1] if speed_match else '1'
+            progress_status = progress_match[-1] if progress_match else ''
+
+            speed = safe_float_convert(speed_str, 0.1)
+            if speed == 0 or speed_str in ('N/A', '0'):
+                speed = 0.1
+
+            if progress_status == 'end':
+                encoding_complete = True
+                break
+
+            elapsed_time = safe_float_convert(elapsed_us / 1000000.0)
+            percentage = min(99, (elapsed_time / total_time_safe) * 100 if total_time_safe > 0 else 0)
+
+            if speed > 0 and total_time_safe > elapsed_time:
+                remaining_time = (total_time_safe - elapsed_time) / speed
+                eta = TimeFormatter(remaining_time * 1000)
+            else:
+                eta = "Calculating..."
+
+            execution_time = TimeFormatter((time.time() - COMPRESSION_START_TIME) * 1000)
+            progress_bar_length = 10
+            filled_bars = int(percentage / 10)
+            progress_str = f"{''.join(FINISHED_PROGRESS_STR for _ in range(filled_bars))}{''.join(UN_FINISHED_PROGRESS_STR for _ in range(progress_bar_length - filled_bars))}"
+
+            stats = f"""<b>{description}</b>
+
+Progress: {progress_str} {percentage:.1f}%
 Execution Time: {execution_time}
 ETA: {eta}
 Speed: {speed:.2f}x
 Frame: {frame}"""
 
-                current_time = time.time()
-                if current_time - last_update_time >= 15 and progress_msg:
-                    try:
-                        await progress_msg.edit_text(
-                            text=stats,
-                            reply_markup=InlineKeyboardMarkup(
-                                [[InlineKeyboardButton("❌", callback_data=f"cancel_{process.pid}")]]
-                            )
-                        )
-                        last_update_time = current_time
-                        consecutive_errors = 0
-                    except Exception as e:
-                        consecutive_errors += 1
-                        LOGGER.debug(f"Progress message update error: {e}")
-                        if consecutive_errors >= 3:
-                            progress_msg = None
-
-            except asyncio.CancelledError:
-                LOGGER.info("Encoding cancelled")
-                process.terminate()
-                break
-            except Exception as e:
-                LOGGER.error(f"Error in encoding loop: {e}")
-                continue
-
-        # Cleanup
-        try:
-            if process and process.returncode is None:
-                process.terminate()
+            current_time = time.time()
+            if current_time - last_update_time >= 10 and progress_msg:
                 try:
-                    await asyncio.wait_for(process.wait(), timeout=10)
-                except asyncio.TimeoutError:
-                    process.kill()
-            for filepath in (progress_file, status_file):
-                if filepath and os.path.exists(filepath):
-                    try:
-                        os.remove(filepath)
-                    except Exception:
-                        pass
-        except Exception as e:
-            LOGGER.error(f"Cleanup error: {e}")
+                    await progress_msg.edit_text(
+                        text=stats,
+                        reply_markup=InlineKeyboardMarkup(
+                            [[InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_{process.pid}")]]
+                        )
+                    )
+                    last_update_time = current_time
+                except:
+                    pass
+
+    except Exception as e:
+        LOGGER.error(f"Error in progress loop: {e}")
+    finally:
+        if process.returncode is None:
+            process.terminate()
+            await process.wait()
+
+        if os.path.exists(progress_file):
+            os.remove(progress_file)
 
         if progress_msg:
             try:
                 await progress_msg.delete()
-            except Exception:
+            except:
                 pass
 
-        if process and process.pid in pid_list:
+        if process.pid in pid_list:
             pid_list.remove(process.pid)
 
-        if encoding_complete and os.path.exists(temp_output) and get_file_size(temp_output) > 10000:
-            if os.path.exists(final_output):
-                os.remove(final_output)
-            os.rename(temp_output, final_output)
+    return encoding_complete
+
+async def convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://i.ibb.co/pBHHTC7Z/jsorg.jpg', user_id=None):
+    if not os.path.exists(video_file):
+        return None
+
+    total_time_safe = safe_float_convert(total_time)
+    if total_time_safe == 0:
+        total_time_safe = get_duration(video_file)
+
+    try:
+        if user_id is None:
+            user_id = message.from_user.id
+        user_data = await db.get_user_data(user_id)
+
+        # Watermark settings
+        opacity = user_data.get("opacity", 100) / 100.0
+        pos_type = user_data.get("position", "Top Left")
+        size_percent = user_data.get("size", 10) / 100.0
+
+        pos_map = {
+            "Top Left": "10:10",
+            "Top Right": "main_w-overlay_w-10:10",
+            "Center": "(main_w-overlay_w)/2:(main_h-overlay_h)/2",
+            "Bottom Left": "10:main_h-overlay_h-10",
+            "Bottom Right": "main_w-overlay_w-10:main_h-overlay_h-10"
+        }
+        overlay_pos = pos_map.get(pos_type, "10:10")
+
+        os.makedirs(output_directory, exist_ok=True)
+        name = os.path.splitext(os.path.basename(video_file))[0]
+        final_output = os.path.join(output_directory, f"{name}.mkv")
+
+        if not crf: crf.append("24")
+        if not codec: codec.append("libx264")
+        if not resolution: resolution.append("1920x1080")
+        if not preset: preset.append("veryfast")
+        if not audio_b: audio_b.append("35k")
+
+        filter_complex = f"[1:v]colorkey=0x000000:0.1:0.1,format=rgba,colorchannelmixer=aa={opacity},scale=iw*{size_percent}:-1[wm]; [0:v][wm]overlay={overlay_pos}"
+
+        cmd = [
+            'ffmpeg', '-hide_banner', '-loglevel', 'warning',
+            '-i', video_file, '-i', watermark_url,
+            '-filter_complex', filter_complex,
+            '-map', '0:a?', '-map', '0:s?', '-c:v', codec[0],
+            '-crf', crf[0], '-preset', preset[0], '-b:v', '150k',
+            '-c:a', 'libopus', '-b:a', audio_b[0], '-pix_fmt', 'yuv420p', '-s', resolution[0],
+            '-y', final_output
+        ]
+
+        success = await run_ffmpeg_with_progress(cmd, total_time_safe, bot, message, "Compressing Video...")
+
+        if success and os.path.exists(final_output) and get_file_size(final_output) > 1000:
             return final_output
-        else:
-            LOGGER.error(f"Encoding failed - Return code: {process.returncode if process else 'Unknown'}")
-            LOGGER.error(f"Output file exists: {os.path.exists(temp_output)}")
-            LOGGER.error(f"Output file size: {get_file_size(temp_output)}")
-            if os.path.exists(temp_output):
-                os.remove(temp_output)
-            return None
+        return None
 
     except Exception as e:
         LOGGER.error(f"Error in convert_video1: {e}")
         return None
 
-async def convert_video(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://graph.org/file/b41a33cfdde9349b322b7.png'):
-    return await convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url)
+async def convert_video(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://graph.org/file/b41a33cfdde9349b322b7.png', user_id=None):
+    return await convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url, user_id)
 
 async def process_video(client, message):
     user_id = message.from_user.id
@@ -515,25 +493,22 @@ async def add_soft_subtitles(video_file, subtitle_file, output_directory):
         LOGGER.error(f"Error adding soft subtitles: {e}")
         return None
 
-async def add_hard_subtitles(video_file, subtitle_file, output_directory):
+async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, message):
     try:
         if not os.path.exists(video_file) or not os.path.exists(subtitle_file):
-            LOGGER.error(f"Hard sub: File not found. Video: {video_file}, Sub: {subtitle_file}")
             return None
 
-        # Ensure absolute paths for ffmpeg
         video_file = os.path.abspath(video_file)
         subtitle_file = os.path.abspath(subtitle_file)
+        total_duration = get_duration(video_file)
 
         os.makedirs(output_directory, exist_ok=True)
         output_filename = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mp4")
 
-        # Need to escape subtitle path for ffmpeg filters
-        # For Linux, we need to escape backslashes and single quotes
         escaped_sub_path = subtitle_file.replace("\\", "/").replace("'", "'\\''").replace(":", "\\:")
 
         cmd = [
-            'ffmpeg', '-hide_banner', '-loglevel', 'error',
+            'ffmpeg', '-hide_banner', '-loglevel', 'warning',
             '-i', video_file,
             '-vf', f"subtitles='{escaped_sub_path}'",
             '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
@@ -541,17 +516,11 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory):
             '-y', output_filename
         ]
 
-        LOGGER.info(f"Running hard sub command: {' '.join(cmd)}")
-        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        stdout, stderr = await process.communicate()
+        success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Adding Hard Subtitles...")
 
-        if process.returncode == 0 and os.path.exists(output_filename):
+        if success and os.path.exists(output_filename):
             return output_filename
-        else:
-            LOGGER.error(f"Hard sub failed with return code {process.returncode}")
-            if stderr:
-                LOGGER.error(f"FFmpeg stderr: {stderr.decode()}")
-            return None
+        return None
     except Exception as e:
         LOGGER.error(f"Error adding hard subtitles: {e}")
         return None
@@ -602,13 +571,11 @@ async def get_media_info_text(saved_file_path):
         LOGGER.error(f"Error generating media info text: {e}")
         return f"Error: {e}"
 
-async def merge_videos(video_list, output_path):
+async def merge_videos(video_list, output_path, bot, message, total_duration):
     try:
         if not video_list:
             return None
 
-        # Use concat filter to handle different resolutions/formats
-        # This is slower but more robust than concat demuxer
         input_args = []
         for v in video_list:
             input_args.extend(['-i', v])
@@ -622,7 +589,7 @@ async def merge_videos(video_list, output_path):
 
         filter_complex += f"concat=n={len(video_list)}:v=1:a=1[v][a]"
 
-        cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'error'] + input_args + [
+        cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning'] + input_args + [
             '-filter_complex', filter_complex,
             '-map', '[v]', '-map', '[a]',
             '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast',
@@ -630,10 +597,9 @@ async def merge_videos(video_list, output_path):
             '-y', output_path
         ]
 
-        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        await process.communicate()
+        success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Merging Videos...")
 
-        if process.returncode == 0 and os.path.exists(output_path):
+        if success and os.path.exists(output_path):
             return output_path
         return None
     except Exception as e:

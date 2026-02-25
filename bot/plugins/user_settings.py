@@ -76,6 +76,26 @@ async def main_menu_handler(client: Client, callback_query: CallbackQuery):
     await callback_query.message.edit_text(text, reply_markup=keyboard)
 
 
+@Client.on_callback_query(filters.regex(r"^utility_menu$"))
+async def utility_menu_handler(client: Client, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    text, keyboard = await menu_handler.utility_menu(user_id)
+    await callback_query.message.edit_text(text, reply_markup=keyboard)
+
+
+@Client.on_callback_query(filters.regex(r"^util_(merge|audio|sub)$"))
+async def util_info_handler(client: Client, callback_query: CallbackQuery):
+    tool = callback_query.data.split("_")[1]
+    if tool == "merge":
+        msg = "🎬 **Merge Videos**\n\n1. Send `/merge` to start a session.\n2. Send or reply with videos you want to merge.\n3. Send `/done` to start the merging process."
+    elif tool == "audio":
+        msg = "🎵 **Add Audio**\n\n1. Reply to a video with the audio file.\n2. Reply to that audio file with `/addaudio`."
+    elif tool == "sub":
+        msg = "📝 **Add Subtitles**\n\n1. Reply to a video with the subtitle file (.srt/.ass).\n2. Reply to that subtitle file with `/sub` (soft) or `/hsub` (hard)."
+
+    await callback_query.answer(msg, show_alert=True)
+
+
 @Client.on_callback_query(filters.regex(r"^watermark_menu$"))
 async def watermark_menu_handler(client: Client, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
