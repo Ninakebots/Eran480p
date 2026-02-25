@@ -23,6 +23,7 @@ class Command:
     TRIM = "trim"
     MEDIAINFO = "mediainfo"
     MERGE = "merge"
+    DONE = "done"
     LIST = "list"
     SPEEDTEST = "speedtest"
     SYSINFO = "sysinfo"

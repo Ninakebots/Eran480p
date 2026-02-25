@@ -1,5 +1,5 @@
 from pyrogram import filters
-from bot import BOT_USERNAME, app
+from bot import BOT_USERNAME, app, merge_sessions
 from bot.commands import Command
 from bot.helper_funcs.utils import add_to_queue, is_auth
 
@@ -101,31 +101,43 @@ async def mediainfo_handler(client, message):
 
 @app.on_message(filters.incoming & filters.command([Command.MERGE, f"{Command.MERGE}@{BOT_USERNAME}"]) & is_auth)
 async def merge_handler(client, message):
+    user_id = message.from_user.id
     reply = message.reply_to_message
-    if not reply or not (reply.video or reply.document):
-        return await message.reply_text("❌ Reply to the last video in the chain to merge.")
 
-    # Traverse the reply chain to find all videos
-    video_messages = []
-    current = reply
+    if user_id not in merge_sessions:
+        merge_sessions[user_id] = []
+        if reply and (reply.video or (reply.document and reply.document.mime_type and reply.document.mime_type.startswith("video/"))):
+            merge_sessions[user_id].append(reply)
+            return await message.reply_text("🆕 Merge session started with replied video.\nNow send more videos or use /done.")
+        await message.reply_text("🆕 Merge session started.\nNow send all the videos you want to merge one by one, then send /done.")
+    else:
+        if reply and (reply.video or (reply.document and reply.document.mime_type and reply.document.mime_type.startswith("video/"))):
+            merge_sessions[user_id].append(reply)
+            return await message.reply_text(f"✅ Replied video added. Total: {len(merge_sessions[user_id])}\nSend more or use /done.")
+        await message.reply_text(f"🎬 You have {len(merge_sessions[user_id])} videos in your merge session.\nSend more or use /done to merge.")
 
-    while current:
-        if current.video or (current.document and current.document.mime_type.startswith("video/")):
-            video_messages.append(current)
-        else:
-            break
+@app.on_message(filters.incoming & filters.command([Command.DONE, f"{Command.DONE}@{BOT_USERNAME}"]) & is_auth)
+async def done_handler(client, message):
+    user_id = message.from_user.id
+    if user_id not in merge_sessions or not merge_sessions[user_id]:
+        return await message.reply_text("❌ No videos in your merge session. Use /merge to start.")
 
-        if current.reply_to_message:
-            # We need to fetch the full message to get the media
-            current = await client.get_messages(chat_id=current.chat.id, message_ids=current.reply_to_message.id)
-        else:
-            break
-
+    video_messages = merge_sessions[user_id]
     if len(video_messages) < 2:
-        return await message.reply_text("❌ Need at least two videos in a reply chain to merge.")
-
-    # We want to merge in the order they were sent (top to bottom)
-    video_messages.reverse()
+        return await message.reply_text(f"❌ Need at least two videos to merge. Currently have {len(video_messages)}.")
 
     await message.reply_text(f"⏰ Added merge task ({len(video_messages)} videos) to queue...", quote=True)
     await add_to_queue(message, "merge", options={'video_messages': video_messages})
+
+    # Session is cleared in handle_merge_task or here?
+    # Better here to allow user to start new session immediately
+    del merge_sessions[user_id]
+
+@app.on_message(filters.incoming & (filters.video | filters.document) & is_auth, group=-1)
+async def collect_videos_for_merge(client, message):
+    user_id = message.from_user.id
+    if user_id in merge_sessions:
+        if message.video or (message.document and message.document.mime_type and message.document.mime_type.startswith("video/")):
+            merge_sessions[user_id].append(message)
+            await message.reply_text(f"✅ Video added to merge session. Total: {len(merge_sessions[user_id])}\nSend more or use /done to merge.", quote=True)
+            message.stop_propagation()

@@ -3,6 +3,7 @@ import os
 import time
 import datetime
 import json
+import re
 from bot import (
     DOWNLOAD_LOCATION,
     LOGGER,
@@ -230,15 +231,53 @@ async def handle_trim_task(message, options):
 async def handle_mediainfo_task(message, options):
     sent_message = await bot.send_message(chat_id=message.chat.id, text="ꜰᴇᴛᴄʜɪɴɢ ᴍᴇᴅɪᴀ ɪɴꜰᴏ...📥", reply_to_message_id=message.id)
     try:
-        video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
-        if not video_path: return await sent_message.edit_text("❌ Download failed.")
+        # Download only first 5MB
+        video_path = os.path.join(DOWNLOAD_LOCATION, f"mi_{int(time.time())}.mp4")
+
+        downloaded_size = 0
+        MAX_SIZE = 5 * 1024 * 1024 # 5MB
+
+        try:
+            async for chunk in bot.stream_media(message):
+                with open(video_path, "ab") as f:
+                    f.write(chunk)
+                downloaded_size += len(chunk)
+                if downloaded_size >= MAX_SIZE:
+                    break
+        except Exception as e:
+            LOGGER.error(f"Error streaming for mediainfo: {e}")
+
+        if not os.path.exists(video_path) or os.path.getsize(video_path) == 0:
+            return await sent_message.edit_text("❌ Failed to fetch partial file for MediaInfo.")
 
         from bot.helper_funcs.ffmpeg import get_media_info_text
+        # We want plain text for Telegraph <pre>
         info_text = await get_media_info_text(video_path)
+        # Strip HTML tags for Telegraph <pre>
+        plain_info = re.sub(r'<[^>]*>', '', info_text)
 
-        await sent_message.edit_text(info_text)
+        from bot.helper_funcs.utils import upload_to_telegraph
+        from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+        title = "Media Info"
+        if message.video and message.video.file_name:
+            title = message.video.file_name
+        elif message.document and message.document.file_name:
+            title = message.document.file_name
+
+        telegraph_url = await upload_to_telegraph(f"Media Info - {title}", plain_info)
+
+        if telegraph_url:
+            await sent_message.edit_text(
+                f"📊 **Media Info Generated!**",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("View MediaInfo", url=telegraph_url)]])
+            )
+        else:
+            await sent_message.edit_text("❌ Failed to upload MediaInfo to Telegraph.")
+
         if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
+        LOGGER.error(f"Error in handle_mediainfo_task: {e}")
         await sent_message.edit_text(f"❌ Error: {e}")
 
 async def handle_merge_task(message, options):

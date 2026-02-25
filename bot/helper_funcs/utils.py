@@ -9,7 +9,7 @@ logging.basicConfig(
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
 LOGGER = logging.getLogger(__name__)
 
-import os, asyncio, pyrogram, psutil, platform, time, re
+import os, asyncio, pyrogram, psutil, platform, time, re, json, aiohttp
 from bot import data, AUTH_USERS, AUTH_CHATS
 from bot.helper_funcs.database import db
 from pyrogram import filters
@@ -123,6 +123,46 @@ def safe_float_convert(value, default=0.0):
         return default
     except (ValueError, TypeError):
         return default
+
+TELEGRAPH_TOKEN = None
+
+async def upload_to_telegraph(title, content):
+    global TELEGRAPH_TOKEN
+    try:
+        async with aiohttp.ClientSession() as session:
+            if not TELEGRAPH_TOKEN:
+                # Create account anonymously
+                async with session.get("https://api.telegra.ph/createAccount", params={
+                    "short_name": "EncoderBot",
+                    "author_name": "ZaniEncoder"
+                }) as resp:
+                    acc_data = await resp.json()
+                    if not acc_data.get("ok"):
+                        return None
+                    TELEGRAPH_TOKEN = acc_data["result"]["access_token"]
+
+            # Content must be a list of nodes. We'll wrap our text in <pre>
+            formatted_content = [{"tag": "pre", "children": [content]}]
+
+            async with session.post("https://api.telegra.ph/createPage", data={
+                "access_token": TELEGRAPH_TOKEN,
+                "title": title,
+                "author_name": "ZaniEncoder",
+                "content": json.dumps(formatted_content),
+                "return_content": "false"
+            }) as resp:
+                page_data = await resp.json()
+                if page_data.get("ok"):
+                    return page_data["result"]["url"]
+                else:
+                    LOGGER.error(f"Telegraph error: {page_data}")
+                    # If token is invalid, clear it so it's recreated next time
+                    if "ACCESS_TOKEN_INVALID" in str(page_data):
+                        TELEGRAPH_TOKEN = None
+                    return None
+    except Exception as e:
+        LOGGER.error(f"Error uploading to Telegraph: {e}")
+        return None
 
 async def auth_filter(_, __, update):
     user_id = update.from_user.id if update.from_user else None
