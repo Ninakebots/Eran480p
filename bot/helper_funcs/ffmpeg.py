@@ -518,17 +518,40 @@ async def add_soft_subtitles(video_file, subtitle_file, output_directory):
 async def add_hard_subtitles(video_file, subtitle_file, output_directory):
     try:
         if not os.path.exists(video_file) or not os.path.exists(subtitle_file):
+            LOGGER.error(f"Hard sub: File not found. Video: {video_file}, Sub: {subtitle_file}")
             return None
+
+        # Ensure absolute paths for ffmpeg
+        video_file = os.path.abspath(video_file)
+        subtitle_file = os.path.abspath(subtitle_file)
+
         os.makedirs(output_directory, exist_ok=True)
         output_filename = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mp4")
+
         # Need to escape subtitle path for ffmpeg filters
-        escaped_sub_path = subtitle_file.replace("'", "'\\''").replace(":", "\\:")
-        cmd = ['ffmpeg', '-i', video_file, '-vf', f"subtitles='{escaped_sub_path}'", '-c:a', 'copy', '-y', output_filename]
+        # For Linux, we need to escape backslashes and single quotes
+        escaped_sub_path = subtitle_file.replace("\\", "/").replace("'", "'\\''").replace(":", "\\:")
+
+        cmd = [
+            'ffmpeg', '-hide_banner', '-loglevel', 'error',
+            '-i', video_file,
+            '-vf', f"subtitles='{escaped_sub_path}'",
+            '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
+            '-c:a', 'copy',
+            '-y', output_filename
+        ]
+
+        LOGGER.info(f"Running hard sub command: {' '.join(cmd)}")
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        await process.communicate()
+        stdout, stderr = await process.communicate()
+
         if process.returncode == 0 and os.path.exists(output_filename):
             return output_filename
-        return None
+        else:
+            LOGGER.error(f"Hard sub failed with return code {process.returncode}")
+            if stderr:
+                LOGGER.error(f"FFmpeg stderr: {stderr.decode()}")
+            return None
     except Exception as e:
         LOGGER.error(f"Error adding hard subtitles: {e}")
         return None

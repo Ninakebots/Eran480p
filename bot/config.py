@@ -41,7 +41,7 @@ class Config(object):
     # Custom Messages
     START_PIC = get_config("START_PIC", "https://i.ibb.co/nM9Ypvmq/jsorg.jpg")
     START_MESSAGE = get_config("START_MESSAGE", "Hᴇʟʟᴏ, \n<blockquote>Tʜɪꜱ ɪꜱ ᴀ Tᴇʟᴇɢʀᴀᴍ <b>Video Encoder Bot</b>. \n\n<b>Pʟᴇᴀꜱᴇ Sᴇɴᴅ ᴍᴇ ᴀɴʏ Tᴇʟᴇɢʀᴀᴍ Bɪɢ Vɪᴅᴇᴏ Fɪʟᴇ ɪ ᴡɪʟʟ Cᴏᴍᴘʀᴇꜱꜱ Iᴛ ᴀꜱ  Sᴍᴀʟʟ Vɪᴅᴇᴏ Fɪʟᴇ!</b> \n\n/help Fᴏʀ Mᴏʀᴇ Dᴇᴛᴀɪʟꜱ.</blockquote> \n✨ Eɴᴊᴏʏ.....")
-    HELP_MESSAGE = get_config("HELP_MESSAGE", "Hi, I am Video Compressor Bot \n\n1. Send me your telegram big video file \n2. Reply to the file with: `/compress 50` \n\nMaintained By line @SECRECT_BOT_UPDATES")
+    HELP_MESSAGE = get_config("HELP_MESSAGE", "Hi, I am Video Compressor Bot\n\n<b>Available Commands:</b>\n1. Send any video to compress it.\n2. /merge - Start a merge session.\n3. /done - Finish and merge videos in session.\n4. /mediainfo - Reply to a video for MediaInfo (Telegraph).\n5. /hsub - Reply to a subtitle file (replied to a video) for hard subs.\n6. /trim - Usage: `/trim start_time end_time`")
     ABOUT_MESSAGE = get_config("ABOUT_MESSAGE", "<blockquote><b>Mʏ Nᴀᴍᴇ:</b> Zᴀɴɪ Eɴᴄᴏᴅᴇʀ Bᴏᴛ\n<b>Lᴀɴɢᴜᴀɢᴇ:</b> Pʏᴛʜᴏɴ\n<b>Lɪʙʀᴀʀʏ:</b> Pʏʀᴏɢʀᴀᴍ\n<b>Dᴇᴠᴇʟᴏᴘᴇʀ:</b> @TheAlphaBotz</blockquote>")
     
     # MongoDB Settings
