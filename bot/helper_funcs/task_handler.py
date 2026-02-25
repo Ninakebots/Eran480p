@@ -27,6 +27,7 @@ from bot.helper_funcs.display_progress import (
     TimeFormatter,
     humanbytes
 )
+from bot.helper_funcs.utils import copy_to_dump_channel
 
 LOGGER = logging.getLogger(__name__)
 
@@ -104,7 +105,9 @@ async def handle_extract_audio_task(message, options):
 
         if audio_path:
             await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈...")
-            await bot.send_audio(chat_id=message.chat.id, audio=audio_path, reply_to_message_id=message.id)
+            sent_audio = await bot.send_audio(chat_id=message.chat.id, audio=audio_path, reply_to_message_id=message.id)
+            if sent_audio:
+                await copy_to_dump_channel(bot, sent_audio, message.from_user.id if message.from_user else "Unknown")
             await sent_message.delete()
         else:
             await sent_message.edit_text("❌ Audio extraction failed.")
@@ -130,7 +133,9 @@ async def handle_add_audio_task(message, options):
 
         if output_path:
             await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝗋𝖾𝗌𝗎𝗅𝗍...")
-            await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
+            sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
+            if sent_video:
+                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
             await sent_message.delete()
         else:
             await sent_message.edit_text("❌ Adding audio failed.")
@@ -151,7 +156,9 @@ async def handle_remove_audio_task(message, options):
         output_path = await remove_audio(video_path, DOWNLOAD_LOCATION)
 
         if output_path:
-            await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
+            sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
+            if sent_video:
+                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
             await sent_message.delete()
         else:
             await sent_message.edit_text("❌ Removing audio failed.")
@@ -177,7 +184,9 @@ async def handle_subtitles_task(message, options, sub_type):
             output_path = await add_hard_subtitles(video_path, sub_path, DOWNLOAD_LOCATION, bot, sent_message)
 
         if output_path:
-            await bot.send_document(chat_id=message.chat.id, document=output_path, reply_to_message_id=message.id)
+            sent_doc = await bot.send_document(chat_id=message.chat.id, document=output_path, reply_to_message_id=message.id)
+            if sent_doc:
+                await copy_to_dump_channel(bot, sent_doc, message.from_user.id if message.from_user else "Unknown")
             await sent_message.delete()
         else:
             await sent_message.edit_text(f"❌ Adding {sub_type} subtitles failed.")
@@ -197,7 +206,9 @@ async def handle_remove_subtitles_task(message, options):
         output_path = await remove_subtitles(video_path, DOWNLOAD_LOCATION)
 
         if output_path:
-            await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
+            sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
+            if sent_video:
+                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
             await sent_message.delete()
         else:
             await sent_message.edit_text("❌ Removing subtitles failed.")
@@ -219,7 +230,9 @@ async def handle_trim_task(message, options):
         output_path = await cult_small_video(video_path, DOWNLOAD_LOCATION, start_time, end_time, bot, sent_message)
 
         if output_path:
-            await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
+            sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
+            if sent_video:
+                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
             await sent_message.delete()
         else:
             await sent_message.edit_text("❌ Trimming failed.")
@@ -319,7 +332,7 @@ async def handle_merge_task(message, options):
 
         if result and os.path.exists(result):
             await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝗆𝖾𝗋𝗀𝖾𝖽 𝗏𝗂𝖽𝖾𝗈...")
-            await bot.send_video(
+            sent_video = await bot.send_video(
                 chat_id=message.chat.id,
                 video=result,
                 caption=f"✅ Merged {len(video_messages)} videos successfully!",
@@ -327,6 +340,8 @@ async def handle_merge_task(message, options):
                 progress=progress_for_pyrogram,
                 progress_args=(bot, "Uᴘʟᴏᴀᴅɪɴɢ...📤", sent_message, time.time())
             )
+            if sent_video:
+                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
             await sent_message.delete()
         else:
             await sent_message.edit_text("❌ Merging failed.")
