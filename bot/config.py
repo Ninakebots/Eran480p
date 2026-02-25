@@ -17,10 +17,10 @@ class Config(object):
     UPDATES_CHANNEL = get_config("UPDATES_CHANNEL", None)
     
     # Auth settings
-    AUTH_USERS = [-1003580239953]
+    AUTH_USERS = [8497538010]
     AUTH_CHATS = []
 
-    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8583442776:AAEBJMmvHd-yMQPamgd4p94eh1DABM1eC9c")
+    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "7437113270:AAEvK-rfb2UTK41zgKUor5S2iF0yixIHemU")
     DOWNLOAD_LOCATION = get_config("DOWNLOAD_LOCATION", "/app/downloads")
     BOT_USERNAME = get_config("BOT_USERNAME", "ZaniEncoderBot")
     
