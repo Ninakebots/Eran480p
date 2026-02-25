@@ -13,6 +13,9 @@ from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo
 from bot.helper_funcs.database import db
 from bot.plugins.incoming_message_fn import incoming_start_message_f, incoming_compress_message_f, incoming_cancel_message_f
 from bot.plugins.status_message_fn import eval_message_f, exec_message_f, upload_log_file
+from bot.plugins.encoding_handlers import *
+from bot.plugins.media_tools import *
+from bot.plugins.utility_handlers import *
 from bot.plugins.call_back_button_handler import button as admin_button_handler
 from bot.watermark_handlers import *
 from bot.commands import Command
@@ -105,15 +108,6 @@ if __name__ == "__main__":
         else:
             await message.reply_text("🔒 Admin Only")
 
-    @app.on_message(filters.incoming & filters.command(["compress", f"compress@{BOT_USERNAME}"]))
-    async def compress_handler(app, message):
-        if message.chat.id not in AUTH_USERS:
-            return await message.reply_text("🚫 You are not authorized to use this bot")
-        query = await message.reply_text("⏰ Added to queue...\nPlease be patient, compression will start soon", quote=True)
-        data.append(message.reply_to_message)
-        if len(data) == 1:
-            await query.delete()
-            await add_task(message.reply_to_message)
 
     @app.on_message(filters.incoming & filters.command(["restart", f"restart@{BOT_USERNAME}"]))
     async def restarter(app, message):
@@ -135,10 +129,9 @@ if __name__ == "__main__":
         if message.chat.id not in AUTH_USERS:
             return await message.reply_text("🚫 Not authorized")
         query = await message.reply_text("⏰ Added to queue...\nPlease be patient, compression will start soon", quote=True)
-        data.append(message)
-        if len(data) == 1:
-            await query.delete()
-            await add_task(message)
+        from bot.helper_funcs.utils import add_to_queue
+        await add_to_queue(message, "compress")
+        await query.delete()
 
     @app.on_message(filters.incoming & filters.command(["settings", f"settings@{BOT_USERNAME}"]))
     async def settings(app, message):
@@ -147,16 +140,6 @@ if __name__ == "__main__":
         else:
             await message.reply_text("🔒 Admin Only")
 
-    @app.on_message(filters.incoming & filters.command(["sysinfo", f"sysinfo@{BOT_USERNAME}"]))
-    async def sysinfo_handler(app, message):
-        if message.chat.id in AUTH_USERS:
-            await sysinfo(message)
-        else:
-            await message.reply_text("🔒 Admin Only")
-
-    @app.on_message(filters.incoming & filters.command(["cancel", f"cancel@{BOT_USERNAME}"]))
-    async def cancel_handler(app, message):
-        await incoming_cancel_message_f(app, message)
 
     @app.on_message(filters.incoming & filters.command(["exec", f"exec@{BOT_USERNAME}"]))
     async def exec_handler(app, message):

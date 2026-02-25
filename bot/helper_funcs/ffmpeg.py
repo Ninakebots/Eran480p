@@ -450,3 +450,131 @@ async def process_video(client, message):
     watermark_url = await db.get_watermark_url(user_id)
     if not watermark_url:
         return await message.reply("⚠️ Set your watermark URL first using /us.")
+
+async def extract_audio(video_file, output_directory):
+    try:
+        if not os.path.exists(video_file):
+            return None
+        os.makedirs(output_directory, exist_ok=True)
+        output_filename = os.path.join(output_directory, f"audio_{int(time.time())}.mp3")
+        cmd = ['ffmpeg', '-i', video_file, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', '-y', output_filename]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        if process.returncode == 0 and os.path.exists(output_filename):
+            return output_filename
+        return None
+    except Exception as e:
+        LOGGER.error(f"Error extracting audio: {e}")
+        return None
+
+async def add_audio(video_file, audio_file, output_directory):
+    try:
+        if not os.path.exists(video_file) or not os.path.exists(audio_file):
+            return None
+        os.makedirs(output_directory, exist_ok=True)
+        output_filename = os.path.join(output_directory, f"added_audio_{int(time.time())}.mp4")
+        cmd = ['ffmpeg', '-i', video_file, '-i', audio_file, '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest', '-y', output_filename]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        if process.returncode == 0 and os.path.exists(output_filename):
+            return output_filename
+        return None
+    except Exception as e:
+        LOGGER.error(f"Error adding audio: {e}")
+        return None
+
+async def remove_audio(video_file, output_directory):
+    try:
+        if not os.path.exists(video_file):
+            return None
+        os.makedirs(output_directory, exist_ok=True)
+        output_filename = os.path.join(output_directory, f"no_audio_{int(time.time())}.mp4")
+        cmd = ['ffmpeg', '-i', video_file, '-an', '-vcodec', 'copy', '-y', output_filename]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        if process.returncode == 0 and os.path.exists(output_filename):
+            return output_filename
+        return None
+    except Exception as e:
+        LOGGER.error(f"Error removing audio: {e}")
+        return None
+
+async def add_soft_subtitles(video_file, subtitle_file, output_directory):
+    try:
+        if not os.path.exists(video_file) or not os.path.exists(subtitle_file):
+            return None
+        os.makedirs(output_directory, exist_ok=True)
+        output_filename = os.path.join(output_directory, f"soft_sub_{int(time.time())}.mkv")
+        cmd = ['ffmpeg', '-i', video_file, '-i', subtitle_file, '-c', 'copy', '-map', '0', '-map', '1', '-y', output_filename]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        if process.returncode == 0 and os.path.exists(output_filename):
+            return output_filename
+        return None
+    except Exception as e:
+        LOGGER.error(f"Error adding soft subtitles: {e}")
+        return None
+
+async def add_hard_subtitles(video_file, subtitle_file, output_directory):
+    try:
+        if not os.path.exists(video_file) or not os.path.exists(subtitle_file):
+            return None
+        os.makedirs(output_directory, exist_ok=True)
+        output_filename = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mp4")
+        # Need to escape subtitle path for ffmpeg filters
+        escaped_sub_path = subtitle_file.replace("'", "'\\''").replace(":", "\\:")
+        cmd = ['ffmpeg', '-i', video_file, '-vf', f"subtitles='{escaped_sub_path}'", '-c:a', 'copy', '-y', output_filename]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        if process.returncode == 0 and os.path.exists(output_filename):
+            return output_filename
+        return None
+    except Exception as e:
+        LOGGER.error(f"Error adding hard subtitles: {e}")
+        return None
+
+async def remove_subtitles(video_file, output_directory):
+    try:
+        if not os.path.exists(video_file):
+            return None
+        os.makedirs(output_directory, exist_ok=True)
+        output_filename = os.path.join(output_directory, f"no_sub_{int(time.time())}.mp4")
+        cmd = ['ffmpeg', '-i', video_file, '-sn', '-vcodec', 'copy', '-acodec', 'copy', '-y', output_filename]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        if process.returncode == 0 and os.path.exists(output_filename):
+            return output_filename
+        return None
+    except Exception as e:
+        LOGGER.error(f"Error removing subtitles: {e}")
+        return None
+
+async def get_media_info_text(saved_file_path):
+    try:
+        data = await media_info(saved_file_path)
+        if not data:
+            return "Unable to fetch media info."
+
+        info = "<b><u>Media Info</u></b>\n\n"
+        if 'format' in data:
+            f = data['format']
+            info += f"<b>Filename:</b> {os.path.basename(f.get('filename', 'Unknown'))}\n"
+            info += f"<b>Size:</b> {format_bytes(f.get('size', 0))}\n"
+            info += f"<b>Duration:</b> {TimeFormatter(float(f.get('duration', 0))*1000)}\n"
+            info += f"<b>Bitrate:</b> {int(f.get('bit_rate', 0)) // 1000} kbps\n"
+
+        if 'streams' in data:
+            for i, s in enumerate(data['streams']):
+                info += f"\n<b>Stream #{i} ({s.get('codec_type')}):</b>\n"
+                info += f"  <b>Codec:</b> {s.get('codec_name')}\n"
+                if s.get('codec_type') == 'video':
+                    info += f"  <b>Resolution:</b> {s.get('width')}x{s.get('height')}\n"
+                    info += f"  <b>FPS:</b> {s.get('avg_frame_rate')}\n"
+                elif s.get('codec_type') == 'audio':
+                    info += f"  <b>Channels:</b> {s.get('channels')}\n"
+                    info += f"  <b>Sample Rate:</b> {s.get('sample_rate')} Hz\n"
+
+        return info
+    except Exception as e:
+        LOGGER.error(f"Error generating media info text: {e}")
+        return f"Error: {e}"

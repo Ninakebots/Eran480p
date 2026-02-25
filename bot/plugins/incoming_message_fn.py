@@ -37,8 +37,6 @@ from pyrogram.types import ChatPermissions, InlineKeyboardMarkup, InlineKeyboard
 from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant, UsernameNotOccupied, ChatAdminRequired, PeerIdInvalid
 
 
-os.system("wget  https://i.ibb.co/HDZZ0Cch/jsorg.jpg -O thumb.jpg")
-
 CURRENT_PROCESSES = {}
 CHAT_FLOOD = {}
 broadcast_ids = {}

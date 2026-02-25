@@ -58,17 +58,31 @@ async def on_task_complete():
     except Exception as e:
         LOGGER.error(f"Error in on_task_complete: {e}")
 
-async def add_task(message: Message):
+async def add_task(task_info):
     try:
         os.system('rm -rf /app/downloads/*')
-        from bot.plugins.incoming_message_fn import incoming_compress_message_f
-        await incoming_compress_message_f(message)
+        # We'll import the actual handler here to avoid circular imports
+        from bot.helper_funcs.task_handler import execute_task
+        await execute_task(task_info)
     except Exception as e:
         import traceback
         LOGGER.error(f"Error in add_task: {e}")
         LOGGER.error(f"Full traceback: {traceback.format_exc()}")
     finally:
         await on_task_complete()
+
+async def add_to_queue(message: Message, task_type: str, options: dict = None):
+    task_info = {
+        'message': message,
+        'task_type': task_type,
+        'options': options or {},
+        'id': int(time.time())
+    }
+    data.append(task_info)
+    if len(data) == 1:
+        # If this is the only task, start it
+        await add_task(task_info)
+    return task_info['id']
 
 async def sysinfo(e):
     try:
