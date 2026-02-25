@@ -293,6 +293,10 @@ async def incoming_compress_message_f(update):
                 )
             )
             
+            if upload:
+                from bot.helper_funcs.utils import copy_to_dump_channel
+                await copy_to_dump_channel(bot, upload, update.from_user.id if update.from_user else "Unknown")
+
             if upload is None:
                 try:
                     await sent_message.edit_text(text="Uᴘʟᴏᴀᴅ Sᴛᴏᴘᴘᴇᴅ 🛑")

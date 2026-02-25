@@ -124,6 +124,24 @@ def safe_float_convert(value, default=0.0):
     except (ValueError, TypeError):
         return default
 
+async def copy_to_dump_channel(bot, message, user_id):
+    from bot import DUMP_CHANNEL
+    if not DUMP_CHANNEL:
+        return
+    try:
+        # Handle conversion of DUMP_CHANNEL to int if it's a numeric string
+        dump_chat = int(DUMP_CHANNEL) if str(DUMP_CHANNEL).strip("-").isdigit() else DUMP_CHANNEL
+        caption = f"**User ID:** `{user_id}`\n\n{message.caption or ''}"
+
+        if message.video:
+            await bot.send_video(chat_id=dump_chat, video=message.video.file_id, caption=caption)
+        elif message.audio:
+            await bot.send_audio(chat_id=dump_chat, audio=message.audio.file_id, caption=caption)
+        elif message.document:
+            await bot.send_document(chat_id=dump_chat, document=message.document.file_id, caption=caption)
+    except Exception as e:
+        LOGGER.error(f"Error copying to dump channel: {e}")
+
 TELEGRAPH_TOKEN = None
 
 async def upload_to_telegraph(title, content):
