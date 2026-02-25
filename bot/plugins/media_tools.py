@@ -98,3 +98,34 @@ async def mediainfo_handler(client, message):
         return await message.reply_text("❌ Reply to a video.")
     await message.reply_text("⏰ Fetching media info...", quote=True)
     await add_to_queue(reply, "mediainfo")
+
+@app.on_message(filters.incoming & filters.command([Command.MERGE, f"{Command.MERGE}@{BOT_USERNAME}"]) & is_auth)
+async def merge_handler(client, message):
+    reply = message.reply_to_message
+    if not reply or not (reply.video or reply.document):
+        return await message.reply_text("❌ Reply to the last video in the chain to merge.")
+
+    # Traverse the reply chain to find all videos
+    video_messages = []
+    current = reply
+
+    while current:
+        if current.video or (current.document and current.document.mime_type.startswith("video/")):
+            video_messages.append(current)
+        else:
+            break
+
+        if current.reply_to_message:
+            # We need to fetch the full message to get the media
+            current = await client.get_messages(chat_id=current.chat.id, message_ids=current.reply_to_message.id)
+        else:
+            break
+
+    if len(video_messages) < 2:
+        return await message.reply_text("❌ Need at least two videos in a reply chain to merge.")
+
+    # We want to merge in the order they were sent (top to bottom)
+    video_messages.reverse()
+
+    await message.reply_text(f"⏰ Added merge task ({len(video_messages)} videos) to queue...", quote=True)
+    await add_to_queue(message, "merge", options={'video_messages': video_messages})

@@ -22,6 +22,7 @@ class Command:
     RSUB = "rsub"
     TRIM = "trim"
     MEDIAINFO = "mediainfo"
+    MERGE = "merge"
     LIST = "list"
     SPEEDTEST = "speedtest"
     SYSINFO = "sysinfo"
