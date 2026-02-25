@@ -13,7 +13,7 @@ class Database:
     def __init__(self):
         self.client = None
         self.db = None
-        self.watermarks = None
+        self.users = None
         self.auth = None
         
     async def connect(self):
@@ -23,7 +23,7 @@ class Database:
                 
             self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL, serverSelectionTimeoutMS=5000)
             self.db = self.client.bot_database
-            self.watermarks = self.db.watermarks
+            self.users = self.db.users
             self.auth = self.db.authorized_chats
             
             await self.client.admin.command('ping')
@@ -32,38 +32,10 @@ class Database:
             LOGGER.error(f"Error connecting to MongoDB: {e}")
             raise
     
-    async def set_watermark_url(self, user_id: int, watermark_url: str) -> bool:
-        try:
-            from datetime import datetime
-            await self.watermarks.update_one(
-                {"user_id": user_id},
-                {"$set": {"watermark_url": watermark_url, "updated_at": datetime.utcnow()}},
-                upsert=True
-            )
-            return True
-        except Exception as e:
-            LOGGER.error(f"Error setting watermark URL: {e}")
-            return False
-    
-    async def get_watermark_url(self, user_id: int) -> Optional[str]:
-        try:
-            result = await self.watermarks.find_one({"user_id": user_id})
-            return result["watermark_url"] if result else None
-        except Exception as e:
-            LOGGER.error(f"Error getting watermark URL: {e}")
-            return None
-    
-    async def remove_watermark(self, user_id: int) -> bool:
-        try:
-            await self.watermarks.delete_one({"user_id": user_id})
-            return True
-        except Exception as e:
-            LOGGER.error(f"Error removing watermark: {e}")
-            return False
 
     async def update_user_setting(self, user_id: int, key: str, value) -> bool:
         try:
-            await self.watermarks.update_one(
+            await self.users.update_one(
                 {"user_id": user_id},
                 {"$set": {key: value}},
                 upsert=True
@@ -75,7 +47,7 @@ class Database:
 
     async def get_user_settings(self, user_id: int) -> dict:
         try:
-            result = await self.watermarks.find_one({"user_id": user_id})
+            result = await self.users.find_one({"user_id": user_id})
             return result if result else {}
         except Exception as e:
             LOGGER.error(f"Error getting user settings: {e}")
@@ -83,7 +55,7 @@ class Database:
 
     async def update_user_data(self, user_id: int, data: dict) -> bool:
         try:
-            await self.watermarks.update_one(
+            await self.users.update_one(
                 {"user_id": user_id},
                 {"$set": data},
                 upsert=True

@@ -28,7 +28,6 @@ BOT_USERNAME = Config.BOT_USERNAME
 UPDATES_CHANNEL = Config.UPDATES_CHANNEL
 data = []
 crf = []
-watermark = []
 resolution = []
 audio_b = []
 audio_codec_list = []

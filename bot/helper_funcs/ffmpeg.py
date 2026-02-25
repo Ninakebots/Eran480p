@@ -356,7 +356,7 @@ Frame: {frame}"""
 
     return encoding_complete
 
-async def convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://i.ibb.co/pBHHTC7Z/jsorg.jpg', user_id=None):
+async def convert_video1(video_file, output_directory, total_time, bot, message, chan_msg):
     if not os.path.exists(video_file):
         return None
 
@@ -365,24 +365,6 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         total_time_safe = get_duration(video_file)
 
     try:
-        if user_id is None:
-            user_id = message.from_user.id
-        user_data = await db.get_user_data(user_id)
-
-        # Watermark settings
-        opacity = user_data.get("opacity", 100) / 100.0
-        pos_type = user_data.get("position", "Top Left")
-        size_percent = user_data.get("size", 10) / 100.0
-
-        pos_map = {
-            "Top Left": "10:10",
-            "Top Right": "main_w-overlay_w-10:10",
-            "Center": "(main_w-overlay_w)/2:(main_h-overlay_h)/2",
-            "Bottom Left": "10:main_h-overlay_h-10",
-            "Bottom Right": "main_w-overlay_w-10:main_h-overlay_h-10"
-        }
-        overlay_pos = pos_map.get(pos_type, "10:10")
-
         os.makedirs(output_directory, exist_ok=True)
         name = os.path.splitext(os.path.basename(video_file))[0]
         final_output = os.path.join(output_directory, f"{name}.mkv")
@@ -393,12 +375,9 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         if not preset: preset.append("veryfast")
         if not audio_b: audio_b.append("35k")
 
-        filter_complex = f"[1:v]colorkey=0x000000:0.1:0.1,format=rgba,colorchannelmixer=aa={opacity},scale=iw*{size_percent}:-1[wm]; [0:v][wm]overlay={overlay_pos}"
-
         cmd = [
             'ffmpeg', '-hide_banner', '-loglevel', 'warning',
-            '-i', video_file, '-i', watermark_url,
-            '-filter_complex', filter_complex,
+            '-i', video_file,
             '-map', '0:a?', '-map', '0:s?', '-c:v', codec[0],
             '-crf', crf[0], '-preset', preset[0], '-b:v', '150k',
             '-c:a', 'libopus', '-b:a', audio_b[0], '-pix_fmt', 'yuv420p', '-s', resolution[0],
@@ -415,8 +394,8 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         LOGGER.error(f"Error in convert_video1: {e}")
         return None
 
-async def convert_video(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url='https://graph.org/file/b41a33cfdde9349b322b7.png', user_id=None):
-    return await convert_video1(video_file, output_directory, total_time, bot, message, chan_msg, watermark_url, user_id)
+async def convert_video(video_file, output_directory, total_time, bot, message, chan_msg):
+    return await convert_video1(video_file, output_directory, total_time, bot, message, chan_msg)
 
 async def process_video(client, message):
     user_id = message.from_user.id
@@ -424,10 +403,6 @@ async def process_video(client, message):
     
     if chat_id not in AUTH_CHATS and user_id not in AUTH_USERS:
         return await message.reply("🚫 This bot only works in authorized chats.")
-    
-    watermark_url = await db.get_watermark_url(user_id)
-    if not watermark_url:
-        return await message.reply("⚠️ Set your watermark URL first using /us.")
 
 async def extract_audio(video_file, output_directory):
     try:
@@ -576,28 +551,22 @@ async def merge_videos(video_list, output_path, bot, message, total_duration):
         if not video_list:
             return None
 
-        input_args = []
-        for v in video_list:
-            input_args.extend(['-i', v])
+        list_file_path = os.path.join(DOWNLOAD_LOCATION, f"list_{message.id}_{int(time.time())}.txt")
+        with open(list_file_path, 'w') as f:
+            for video in video_list:
+                escaped_path = os.path.abspath(video).replace("'", "'\\''")
+                f.write(f"file '{escaped_path}'\n")
 
-        filter_complex = ""
-        for i in range(len(video_list)):
-            filter_complex += f"[{i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[v{i}];"
-
-        for i in range(len(video_list)):
-            filter_complex += f"[v{i}][{i}:a]"
-
-        filter_complex += f"concat=n={len(video_list)}:v=1:a=1[v][a]"
-
-        cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning'] + input_args + [
-            '-filter_complex', filter_complex,
-            '-map', '[v]', '-map', '[a]',
-            '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast',
-            '-c:a', 'aac', '-b:a', '128k',
-            '-y', output_path
+        cmd = [
+            'ffmpeg', '-hide_banner', '-loglevel', 'warning',
+            '-f', 'concat', '-safe', '0', '-i', list_file_path,
+            '-c', 'copy', '-y', output_path
         ]
 
         success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Merging Videos...")
+
+        if os.path.exists(list_file_path):
+            os.remove(list_file_path)
 
         if success and os.path.exists(output_path):
             return output_path
