@@ -278,23 +278,31 @@ async def run_ffmpeg_with_progress(cmd, total_time_safe, bot, message, descripti
             if not os.path.exists(progress_file):
                 continue
 
-            with open(progress_file, 'r') as f:
-                content = f.read()
+            try:
+                with open(progress_file, 'rb') as f:
+                    f.seek(-512, os.SEEK_END)
+                    content = f.read().decode('utf-8', errors='ignore')
+            except OSError:
+                with open(progress_file, 'r') as f:
+                    content = f.read()
+
             if not content.strip():
                 continue
 
-            frame_match = re.findall(r'frame=(\d+)', content)
-            time_match = re.findall(r'out_time_ms=(\d+)', content)
-            speed_match = re.findall(r'speed=([\d.]+)x?', content)
-            progress_match = re.findall(r'progress=(\w+)', content)
+            # FFmpeg progress output is key=value
+            progress_data = {}
+            for line in content.split('\n'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    progress_data[key.strip()] = value.strip()
 
-            frame = safe_int_convert(frame_match[-1] if frame_match else '1', 1)
-            elapsed_us = safe_int_convert(time_match[-1] if time_match else '0', 0)
-            speed_str = speed_match[-1] if speed_match else '1'
-            progress_status = progress_match[-1] if progress_match else ''
+            frame = safe_int_convert(progress_data.get('frame', '1'), 1)
+            elapsed_us = safe_int_convert(progress_data.get('out_time_ms', '0'), 0)
+            speed_str = progress_data.get('speed', '1x').replace('x', '')
+            progress_status = progress_data.get('progress', '')
 
             speed = safe_float_convert(speed_str, 0.1)
-            if speed == 0 or speed_str in ('N/A', '0'):
+            if speed <= 0:
                 speed = 0.1
 
             if progress_status == 'end':
@@ -370,19 +378,20 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         name = os.path.splitext(os.path.basename(video_file))[0]
         final_output = os.path.join(output_directory, f"{name}.mkv")
 
-        if not crf: crf.append("24")
-        if not codec: codec.append("libx264")
-        if not resolution: resolution.append("1920x1080")
-        if not preset: preset.append("veryfast")
-        if not audio_b: audio_b.append("35k")
+        # Local defaults to avoid mutating global lists
+        target_crf = crf[0] if crf else "24"
+        target_codec = codec[0] if codec else "libx264"
+        target_resolution = resolution[0] if resolution else "1920x1080"
+        target_preset = preset[0] if preset else "veryfast"
+        target_audio_b = audio_b[0] if audio_b else "35k"
 
         cmd = [
             'ffmpeg', '-hide_banner', '-loglevel', 'warning',
             '-i', video_file,
             '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',
-            '-c:v', codec[0], '-crf', crf[0], '-preset', preset[0],
-            '-c:a', 'libopus', '-b:a', audio_b[0], '-pix_fmt', 'yuv420p',
-            '-vf', f"scale={resolution[0].replace('x', ':')}:force_original_aspect_ratio=decrease",
+            '-c:v', target_codec, '-crf', target_crf, '-preset', target_preset,
+            '-c:a', 'libopus', '-b:a', target_audio_b, '-pix_fmt', 'yuv420p',
+            '-vf', f"scale={target_resolution.replace('x', ':')}:force_original_aspect_ratio=decrease",
             '-y', final_output
         ]
 
@@ -412,7 +421,7 @@ async def extract_audio(video_file, output_directory):
             return None
         os.makedirs(output_directory, exist_ok=True)
         output_filename = os.path.join(output_directory, f"audio_{int(time.time())}.mp3")
-        cmd = ['ffmpeg', '-i', video_file, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', '-y', output_filename]
+        cmd = ['ffmpeg', '-i', video_file, '-map', '0:a:0?', '-vn', '-acodec', 'libmp3lame', '-q:a', '2', '-y', output_filename]
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await process.communicate()
         if process.returncode == 0 and os.path.exists(output_filename):
@@ -428,7 +437,7 @@ async def add_audio(video_file, audio_file, output_directory):
             return None
         os.makedirs(output_directory, exist_ok=True)
         output_filename = os.path.join(output_directory, f"added_audio_{int(time.time())}.mp4")
-        cmd = ['ffmpeg', '-i', video_file, '-i', audio_file, '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest', '-y', output_filename]
+        cmd = ['ffmpeg', '-i', video_file, '-i', audio_file, '-map', '0:v:0?', '-map', '1:a:0?', '-c:v', 'copy', '-c:a', 'aac', '-shortest', '-y', output_filename]
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await process.communicate()
         if process.returncode == 0 and os.path.exists(output_filename):
@@ -444,7 +453,7 @@ async def remove_audio(video_file, output_directory):
             return None
         os.makedirs(output_directory, exist_ok=True)
         output_filename = os.path.join(output_directory, f"no_audio_{int(time.time())}.mp4")
-        cmd = ['ffmpeg', '-i', video_file, '-an', '-vcodec', 'copy', '-y', output_filename]
+        cmd = ['ffmpeg', '-i', video_file, '-map', '0:v?', '-map', '0:s?', '-an', '-vcodec', 'copy', '-y', output_filename]
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await process.communicate()
         if process.returncode == 0 and os.path.exists(output_filename):
@@ -460,7 +469,7 @@ async def add_soft_subtitles(video_file, subtitle_file, output_directory):
             return None
         os.makedirs(output_directory, exist_ok=True)
         output_filename = os.path.join(output_directory, f"soft_sub_{int(time.time())}.mkv")
-        cmd = ['ffmpeg', '-i', video_file, '-i', subtitle_file, '-c', 'copy', '-map', '0', '-map', '1', '-y', output_filename]
+        cmd = ['ffmpeg', '-i', video_file, '-i', subtitle_file, '-map', '0:v?', '-map', '0:a?', '-map', '0:s?', '-map', '1:s?', '-c', 'copy', '-y', output_filename]
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await process.communicate()
         if process.returncode == 0 and os.path.exists(output_filename):
@@ -482,13 +491,17 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
         os.makedirs(output_directory, exist_ok=True)
         output_filename = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mp4")
 
-        escaped_sub_path = subtitle_file.replace("\\", "/").replace("'", "'\\''").replace(":", "\\:")
+        # Proper escaping for FFmpeg subtitles filter
+        # 1. Escape backslashes
+        # 2. Escape single quotes
+        # 3. Escape colons
+        escaped_sub_path = subtitle_file.replace('\\', '\\\\').replace("'", "\\'").replace(':', '\\:')
 
         cmd = [
             'ffmpeg', '-hide_banner', '-loglevel', 'warning',
             '-i', video_file,
-            '-vf', f"subtitles='{escaped_sub_path}'",
-            '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?',
+            '-vf', f"subtitles=\"{escaped_sub_path}\"",
+            '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',
             '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
             '-c:a', 'copy',
             '-y', output_filename
@@ -509,7 +522,7 @@ async def remove_subtitles(video_file, output_directory):
             return None
         os.makedirs(output_directory, exist_ok=True)
         output_filename = os.path.join(output_directory, f"no_sub_{int(time.time())}.mp4")
-        cmd = ['ffmpeg', '-i', video_file, '-sn', '-vcodec', 'copy', '-acodec', 'copy', '-y', output_filename]
+        cmd = ['ffmpeg', '-i', video_file, '-map', '0:v?', '-map', '0:a?', '-sn', '-vcodec', 'copy', '-acodec', 'copy', '-y', output_filename]
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await process.communicate()
         if process.returncode == 0 and os.path.exists(output_filename):
@@ -525,7 +538,7 @@ async def get_media_info_text(saved_file_path):
         mediainfo_path = shutil.which("mediainfo")
         if mediainfo_path:
             process = await asyncio.create_subprocess_exec(
-                mediainfo_path, saved_file_path,
+                mediainfo_path, '--Full', saved_file_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
