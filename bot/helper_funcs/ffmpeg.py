@@ -302,6 +302,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         a_bitrate = audio_b[0] if audio_b else "128k"
 
     # Resolve resolution string to width:height
+    v_res = str(v_res).replace('p', '')
     if 'x' in v_res:
         res_w, res_h = v_res.split('x')
     elif ':' in v_res:

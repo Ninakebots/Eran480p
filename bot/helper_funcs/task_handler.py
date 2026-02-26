@@ -67,11 +67,11 @@ async def handle_compression_task(update, task_type, options):
 
     # Override resolution if specific task type is provided
     if task_type == '480p':
-        user_settings['resolution'] = "854x480"
+        user_settings['resolution'] = "480"
     elif task_type == '720p':
-        user_settings['resolution'] = "1280x720"
+        user_settings['resolution'] = "720"
     elif task_type == '1080p':
-        user_settings['resolution'] = "1920x1080"
+        user_settings['resolution'] = "1080"
     elif 'resolution' in options:
         user_settings['resolution'] = options['resolution']
 

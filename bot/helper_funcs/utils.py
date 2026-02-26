@@ -313,6 +313,12 @@ async def auth_filter(_, __, update):
 
 is_auth = filters.create(auth_filter)
 
+def personal_auth_filter(_, __, update):
+    user_id = update.from_user.id if update.from_user else None
+    return user_id in AUTH_USERS and user_id > 0
+
+is_personal_auth = filters.create(personal_auth_filter)
+
 def safe_int_convert(value, default=0):
     try:
         if isinstance(value, int):
