@@ -11,7 +11,7 @@ class Command:
     HELP = get_config("COMMAND_HELP", "help")
     UPLOAD_LOG_FILE = get_config("COMMAND_UPLOAD_LOG_FILE", "log")
     P480 = "480p"
-    P720 = "720"
+    P720 = "720p"
     P1080 = "1080p"
     ALL = "all"
     SOFTSUB = "softsub"

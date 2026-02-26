@@ -2,8 +2,8 @@ from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from bot.helper_funcs.menu_handler import menu_handler
 from bot.helper_funcs.database import get_user_data, update_user_data
-from bot.helper_funcs.utils import is_auth
-from bot import app
+from bot.helper_funcs.utils import is_auth, is_personal_auth
+from bot import app, AUTH_USERS
 import asyncio
 import logging
 import os
@@ -27,6 +27,15 @@ async def user_settings(client, message: Message):
         context = f"|{message.reply_to_message.id}"
 
     text, keyboard = await menu_handler.main_menu(user_id, username, context)
+    await message.reply(text, reply_markup=keyboard)
+
+
+@app.on_message(filters.command("settings") & is_personal_auth)
+async def personal_settings(client, message: Message):
+    if not message.from_user:
+        return
+    user_id = message.from_user.id
+    text, keyboard = await menu_handler.settings_menu(user_id)
     await message.reply(text, reply_markup=keyboard)
 
 
@@ -107,13 +116,18 @@ async def utility_menu_handler(client, callback_query: CallbackQuery):
     text, keyboard = await menu_handler.utility_menu(user_id, context)
     await callback_query.message.edit_text(text, reply_markup=keyboard)
 
-@app.on_callback_query(filters.regex(r"^enc_menu"))
-async def encoding_menu_handler(client, callback_query: CallbackQuery):
+@app.on_callback_query(filters.regex(r"^(settings_menu|enc_menu)"))
+async def settings_menu_handler(client, callback_query: CallbackQuery):
     if not callback_query.from_user:
         return
     user_id = callback_query.from_user.id
+
+    # Check for personal auth
+    if user_id not in AUTH_USERS or user_id <= 0:
+        return await callback_query.answer("❌ You are not authorized to access personal settings.", show_alert=True)
+
     _, context, _ = parse_cb_data(callback_query.data)
-    text, keyboard = await menu_handler.encoding_settings_menu(user_id, context)
+    text, keyboard = await menu_handler.settings_menu(user_id, context)
     await callback_query.message.edit_text(text, reply_markup=keyboard)
 
 # --- Encoding Settings Submenus ---
@@ -124,6 +138,11 @@ async def set_encoding_setting_handler(client, callback_query: CallbackQuery):
         return
     user_id = callback_query.from_user.id
     base, context, _ = parse_cb_data(callback_query.data)
+
+    if base != "set_res":
+        # Check for personal auth
+        if user_id not in AUTH_USERS or user_id <= 0:
+            return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
 
     if base == "set_codec":
         text, keyboard = await menu_handler.set_codec_menu(user_id, context)
@@ -150,6 +169,11 @@ async def update_encoding_setting_handler(client, callback_query: CallbackQuery)
     key_short = parts[1]
     value = parts[2]
 
+    if key_short != "res":
+         # Check for personal auth
+        if user_id not in AUTH_USERS or user_id <= 0:
+            return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
+
     key_map = {
         'codec': 'codec',
         'res': 'resolution',
@@ -163,8 +187,12 @@ async def update_encoding_setting_handler(client, callback_query: CallbackQuery)
         await update_user_data(user_id, {key: value})
         await callback_query.answer(f"✅ {key} updated to {value}")
 
-    # Go back to encoding menu
-    text, keyboard = await menu_handler.encoding_settings_menu(user_id, context)
+    # Route back to appropriate menu
+    if key_short == "res":
+        text, keyboard = await menu_handler.main_menu(user_id, callback_query.from_user.username or callback_query.from_user.first_name, context)
+    else:
+        text, keyboard = await menu_handler.settings_menu(user_id, context)
+
     await callback_query.message.edit_text(text, reply_markup=keyboard)
 
 # --- Media Tools Handlers ---
