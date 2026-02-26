@@ -37,7 +37,7 @@ class Config(object):
     UN_FINISHED_PROGRESS_STR = get_config("UN_FINISHED_PROGRESS_STR", "▢")
     LOG_FILE_ZZGEVC = get_config("LOG_FILE_ZZGEVC", "Log.txt")
     SHOULD_USE_BUTTONS = get_config("SHOULD_USE_BUTTONS", False)
-    GOFILE_TOKEN = get_config("GOFILE_TOKEN", None)
+    GOFILE_TOKEN = get_config("GOFILE_TOKEN", "qhZ7XPgil00CG4PbtOSDCbOoF8gy9PI0")
 
     # Custom Messages
     START_PIC = get_config("START_PIC", "https://i.ibb.co/nM9Ypvmq/jsorg.jpg")
