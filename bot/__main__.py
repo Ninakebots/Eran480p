@@ -19,7 +19,6 @@ from bot.plugins.media_tools import *
 from bot.plugins.utility_handlers import *
 from bot.plugins.auth_handlers import *
 from bot.plugins.call_back_button_handler import button as admin_button_handler
-from bot.watermark_handlers import *
 from bot.commands import Command
 
 # Configure logging to reduce MongoDB verbosity

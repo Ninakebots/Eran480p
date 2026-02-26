@@ -20,8 +20,7 @@ from bot import (
 )
 from bot.config import Config
 from bot.helper_funcs.ffmpeg import (
-  convert_video,
-  convert_video1,  # Add this line
+  convert_video1,
   media_info,
   take_screen_shot,
   get_duration,
@@ -238,30 +237,14 @@ async def incoming_compress_message_f(update):
         
         c_start = time.time()
 
-        user_id = update.from_user.id
-        watermark_url = await db.get_watermark_url(user_id)
-
-        if watermark_url:
-            o = await convert_video1(
-                video,
-                DOWNLOAD_LOCATION,
-                duration,
-                bot,
-                sent_message,
-                compress_start,
-                watermark_url=watermark_url,
-                user_id=user_id
-            )
-        else:
-            o = await convert_video1(
-                video,
-                DOWNLOAD_LOCATION,
-                duration,
-                bot,
-                sent_message,
-                compress_start,
-                user_id=user_id
-            )
+        o = await convert_video1(
+            video,
+            DOWNLOAD_LOCATION,
+            duration,
+            bot,
+            sent_message,
+            compress_start
+        )
         
         compressed_time = TimeFormatter((time.time() - c_start)*1000)
         LOGGER.info(o)

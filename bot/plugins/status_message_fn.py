@@ -18,7 +18,6 @@ from bot import (
     resolution,
     audio_b,
     preset,
-    watermark,
     data,
     pid_list
 )

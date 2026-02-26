@@ -17,7 +17,6 @@ from bot import (
 )
 from bot.localisation import Localisation
 from bot.helper_funcs.ffmpeg import (
-    convert_video1,
     media_info,
     take_screen_shot,
     get_duration
