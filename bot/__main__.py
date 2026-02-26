@@ -14,6 +14,7 @@ from bot.helper_funcs.database import db
 from bot.localisation import Localisation
 from bot.plugins.incoming_message_fn import incoming_start_message_f, incoming_compress_message_f, incoming_cancel_message_f
 from bot.plugins.status_message_fn import eval_message_f, exec_message_f, upload_log_file
+from bot.plugins.subtitle_handlers import *
 from bot.plugins.encoding_handlers import *
 from bot.plugins.media_tools import *
 from bot.plugins.utility_handlers import *
@@ -145,6 +146,9 @@ if __name__ == "__main__":
     async def video_or_document_handler(app, message):
         if not message.from_user:
             return
+        # Skip if it's a subtitle file
+        if message.document and message.document.file_name and message.document.file_name.lower().endswith(('.srt', '.ass', '.vtt')):
+            return
         query = await message.reply_text("⏰ Added to queue...\nPlease be patient, compression will start soon", quote=True)
         from bot.helper_funcs.utils import add_to_queue
         await add_to_queue(message, "compress")
@@ -166,6 +170,10 @@ if __name__ == "__main__":
     @app.on_message(filters.incoming & filters.command(["stop", f"stop@{BOT_USERNAME}"]))
     async def stop_handler(app, message):
         await on_task_complete()
+
+    @app.on_message(filters.incoming & filters.command([Command.UPLOAD_LOG_FILE, f"{Command.UPLOAD_LOG_FILE}@{BOT_USERNAME}"]) & is_auth)
+    async def log_handler(app, message):
+        await upload_log_file(app, message)
 
     @app.on_message(filters.incoming & filters.command(["help", f"help@{BOT_USERNAME}"]) & is_auth)
     async def help_handler(app, message):

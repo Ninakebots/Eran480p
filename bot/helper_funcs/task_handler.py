@@ -8,7 +8,6 @@ from bot import (
     DOWNLOAD_LOCATION,
     LOGGER,
     app as bot,
-    LOG_CHANNEL,
     crf as global_crf,
     resolution as global_resolution,
     audio_b as global_audio_b,

@@ -13,7 +13,6 @@ class Config(object):
     SESSION_NAME = get_config("SESSION_NAME", "Zani")
     APP_ID = int(get_config("APP_ID", "22884130"))
     API_HASH = get_config("API_HASH", "a69e8b16dac958f1bd31eee360ec53fa")
-    LOG_CHANNEL = get_config("LOG_CHANNEL", "Animes_Wine")
     UPDATES_CHANNEL = get_config("UPDATES_CHANNEL", None)
     DUMP_CHANNEL = get_config("DUMP_CHANNEL", "-1003875340607")
     
