@@ -19,14 +19,16 @@ from bot.localisation import Localisation
 from bot.helper_funcs.ffmpeg import (
     media_info,
     take_screen_shot,
-    get_duration
+    get_duration,
+    get_media_info_text
 )
 from bot.helper_funcs.display_progress import (
     progress_for_pyrogram,
     TimeFormatter,
     humanbytes
 )
-from bot.helper_funcs.utils import copy_to_dump_channel
+from bot.helper_funcs.utils import copy_to_dump_channel, upload_to_telegraph
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 LOGGER = logging.getLogger(__name__)
 
@@ -243,11 +245,11 @@ async def handle_trim_task(message, options):
 async def handle_mediainfo_task(message, options):
     sent_message = await bot.send_message(chat_id=message.chat.id, text="ꜰᴇᴛᴄʜɪɴɢ ᴍᴇᴅɪᴀ ɪɴꜰᴏ...📥", reply_to_message_id=message.id)
     try:
-        # Download only first 5MB
+        # Download only first 10MB
         video_path = os.path.join(DOWNLOAD_LOCATION, f"mi_{int(time.time())}.mp4")
 
         downloaded_size = 0
-        MAX_SIZE = 5 * 1024 * 1024 # 5MB
+        MAX_SIZE = 10 * 1024 * 1024 # 10MB
 
         try:
             async for chunk in bot.stream_media(message):
@@ -262,14 +264,11 @@ async def handle_mediainfo_task(message, options):
         if not os.path.exists(video_path) or os.path.getsize(video_path) == 0:
             return await sent_message.edit_text("❌ Failed to fetch partial file for MediaInfo.")
 
-        from bot.helper_funcs.ffmpeg import get_media_info_text
         # We want plain text for Telegraph <pre>
         info_text = await get_media_info_text(video_path)
         # Strip HTML tags for Telegraph <pre>
+        # Only if it actually contains HTML, but my new formatter doesn't
         plain_info = re.sub(r'<[^>]*>', '', info_text)
-
-        from bot.helper_funcs.utils import upload_to_telegraph
-        from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
         title = "Media Info"
         if message.video and message.video.file_name:
