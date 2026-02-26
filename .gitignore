@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+downloads/
+thumbnails/
+Log.txt
+progress_*.txt
+status.json
+merge_list_*.txt
+verify_ffmpeg_cmd.py

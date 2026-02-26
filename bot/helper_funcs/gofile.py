@@ -6,6 +6,19 @@ LOGGER = logging.getLogger(__name__)
 
 async def get_server():
     """Get the available gofile server for upload."""
+    # Preferred endpoint
+    url = "https://api.gofile.io/getServer"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("status") == "ok":
+                        return data.get("data", {}).get("server")
+    except Exception as e:
+        LOGGER.debug(f"Error getting gofile server via getServer: {e}")
+
+    # Fallback to servers list
     url = "https://api.gofile.io/servers"
     try:
         async with aiohttp.ClientSession() as session:
@@ -15,10 +28,9 @@ async def get_server():
                     if data.get("status") == "ok":
                         servers = data.get("data", {}).get("servers", [])
                         if servers:
-                            # Picking the first server is generally fine as it's the recommended one
                             return servers[0].get("name")
     except Exception as e:
-        LOGGER.error(f"Error getting gofile server: {e}")
+        LOGGER.error(f"Error getting gofile server via servers list: {e}")
     return None
 
 async def upload_gofile(file_path, token=None):
@@ -28,7 +40,8 @@ async def upload_gofile(file_path, token=None):
         LOGGER.error("Could not get gofile server.")
         return None
 
-    url = f"https://{server}.gofile.io/contents/uploadfile"
+    # Modern upload endpoint
+    url = f"https://{server}.gofile.io/uploadFile"
     file_name = os.path.basename(file_path)
 
     try:
