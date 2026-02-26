@@ -135,7 +135,11 @@ async def copy_to_dump_channel(bot, message, user_id):
         return
     try:
         # Handle conversion of DUMP_CHANNEL to int if it's a numeric string
-        dump_chat = int(DUMP_CHANNEL) if str(DUMP_CHANNEL).strip("-").isdigit() else DUMP_CHANNEL
+        try:
+            dump_chat = int(str(DUMP_CHANNEL).strip())
+        except (ValueError, TypeError):
+            dump_chat = DUMP_CHANNEL
+
         caption = f"**User ID:** `{user_id}`\n\n{message.caption or ''}"
 
         if message.video:

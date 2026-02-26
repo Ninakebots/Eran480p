@@ -3,6 +3,7 @@ from bot.get_cfg import get_config
 class Command:
     START = get_config("COMMAND_START", "start")
     SUB = get_config("COMMAND_SUB", "sub")
+    HSUB = get_config("COMMAND_HSUB", "hsub")
     COMPRESS = get_config("COMMAND_COMPRESS", "compress")
     CANCEL = get_config("COMMAND_CANCEL", "cancel")
     STATUS = get_config("COMMAND_STATUS", "status")

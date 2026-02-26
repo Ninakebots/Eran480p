@@ -15,7 +15,8 @@ from bot import (
   UPDATES_CHANNEL,
   SESSION_NAME,
   data,
-  app  
+  app,
+  BOT_USERNAME
 )
 from bot.config import Config
 from bot.helper_funcs.ffmpeg import (
@@ -95,6 +96,7 @@ async def get_video_duration_and_bitrate(file_path):
         except:
             return 0, 0
 
+@app.on_message(filters.command(["start", f"start@{BOT_USERNAME}"]))
 async def incoming_start_message_f(bot, update):
     mention = update.from_user.mention if update.from_user else "User"
     start_text = Localisation.START_TEXT.format(mention=mention)
@@ -165,16 +167,21 @@ async def incoming_compress_message_f(update, user_settings=None):
             json.dump(statusMsg, f, indent=2)
         
         # Download media    
-        video = await bot.download_media(
-            message=update,  
-            progress=progress_for_pyrogram,
-            progress_args=(
-                bot,
-                Localisation.DOWNLOAD_START,
-                sent_message,
-                d_start
+        try:
+            video = await bot.download_media(
+                message=update,
+                progress=progress_for_pyrogram,
+                progress_args=(
+                    bot,
+                    Localisation.DOWNLOAD_START,
+                    sent_message,
+                    d_start
+                )
             )
-        )
+        except Exception as de:
+            LOGGER.error(f"bot.download_media failed: {de}")
+            await sent_message.edit_text(text=f"⚠️ Dᴏᴡɴʟᴏᴀᴅ Eʀʀᴏʀ: {str(de)[:100]}")
+            return
         
         saved_file_path = video
         if video:
@@ -189,7 +196,7 @@ async def incoming_compress_message_f(update, user_settings=None):
             return
             
     except Exception as e:
-        LOGGER.error(f"Download error: {str(e)}")
+        LOGGER.error(f"General Download error: {str(e)}")
         try:
             await sent_message.edit_text(text=f"Download error: {str(e)[:100]}")
             if download_start: await download_start.delete()
