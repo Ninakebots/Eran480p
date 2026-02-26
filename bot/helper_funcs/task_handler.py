@@ -40,6 +40,8 @@ async def execute_task(task_info):
         await handle_compression_task(message, task_type, options)
     elif task_type == 'extract_audio':
         await handle_extract_audio_task(message, options)
+    elif task_type == 'extract_sub':
+        await handle_extract_sub_task(message, options)
     elif task_type == 'add_audio':
         await handle_add_audio_task(message, options)
     elif task_type == 'remove_audio':
@@ -107,6 +109,31 @@ async def handle_extract_audio_task(message, options):
             )
         else:
             await sent_message.edit_text("❌ Audio extraction failed.")
+            if video_path and os.path.exists(video_path): os.remove(video_path)
+    except Exception as e:
+        await sent_message.edit_text(f"❌ Error: {e}")
+
+async def handle_extract_sub_task(message, options):
+    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰᴏʀ ꜱᴜʙᴛɪᴛʟᴇ ᴇxᴛʀᴀᴄᴛɪᴏɴ...📥", reply_to_message_id=message.id)
+    try:
+        video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
+        if not video_path:
+            return await sent_message.edit_text("❌ Download failed.")
+
+        await sent_message.edit_text("📝 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌...⚙️")
+        from bot.helper_funcs.ffmpeg import extract_subtitles
+        sub_path = await extract_subtitles(video_path, DOWNLOAD_LOCATION)
+
+        if sub_path:
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=sub_path,
+                input_path=video_path,
+                sent_message=sent_message
+            )
+        else:
+            await sent_message.edit_text("❌ Subtitle extraction failed. Make sure the video has subtitle streams.")
             if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
         await sent_message.edit_text(f"❌ Error: {e}")

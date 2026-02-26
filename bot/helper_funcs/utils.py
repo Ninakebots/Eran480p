@@ -162,6 +162,7 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
     user_id = update.from_user.id if update.from_user else update.chat.id
     user_settings = await get_user_data(user_id)
     upload_dest = user_settings.get("upload_destination", "telegram")
+    upload_as = user_settings.get("upload_as", "video")
 
     u_start = time.time()
     if not sent_message:
@@ -226,7 +227,7 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
                 'progress_args': (bot, Localisation.UPLOAD_START, sent_message, u_start)
             }
 
-            if ext in ['mp4', 'mkv', 'webm']:
+            if upload_as == "video" and ext in ['mp4', 'mkv', 'webm']:
                 upload = await bot.send_video(
                     video=output_path,
                     thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,

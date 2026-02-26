@@ -4,9 +4,11 @@ import logging
 import speedtest
 import subprocess
 from pyrogram import filters
-from bot import BOT_USERNAME, data, app
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from bot import BOT_USERNAME, data, app, AUTH_USERS
 from bot.commands import Command
 from bot.helper_funcs.utils import sysinfo, is_auth, hbs
+from bot.helper_funcs.database import get_user_data, update_user_data
 from bot.localisation import Localisation
 
 LOGGER = logging.getLogger(__name__)
@@ -64,6 +66,70 @@ async def speedtest_handler(client, message):
             await sent.edit_text(f"🏎 **Speed Test Results (Fallback):**\n\n`{output}`")
         except Exception as err:
             await sent.edit_text(f"❌ **Speed test failed.**\n\n**Error:** `{e}`\n**Fallback Error:** `{err}`")
+
+@app.on_message(filters.incoming & filters.command([Command.PING, f"{Command.PING}@{BOT_USERNAME}"]) & is_auth)
+async def ping_handler(client, message):
+    start_time = time.time()
+    sent = await message.reply_text("🏓 **Pinging...**")
+    end_time = time.time()
+    latency = (end_time - start_time) * 1000
+    await sent.edit_text(f"🏓 **Pong!**\nLatency: `{latency:.2f} ms`")
+
+@app.on_message(filters.incoming & filters.command([Command.UPDATE, f"{Command.UPDATE}@{BOT_USERNAME}"]))
+async def update_handler(client, message):
+    if message.from_user.id not in AUTH_USERS:
+        return await message.reply_text("🔒 Admin Only")
+
+    sent = await message.reply_text("🔄 **Checking for updates...**")
+    try:
+        out = subprocess.check_output(['git', 'pull']).decode()
+        if 'Already up to date.' in out:
+            await sent.edit_text("✅ **Bot is already up to date.**")
+        else:
+            await sent.edit_text(f"✅ **Updated successfully!**\n\n`{out}`\n\nRestarting...")
+            os.execl(sys.executable, sys.executable, "-m", "bot")
+    except Exception as e:
+        await sent.edit_text(f"❌ **Update failed.**\n\nError: `{e}`")
+
+@app.on_message(filters.incoming & filters.command([Command.SETMEDIA, f"{Command.SETMEDIA}@{BOT_USERNAME}"]) & is_auth)
+async def setmedia_handler(client, message):
+    user_id = message.from_user.id
+    user_data = await get_user_data(user_id)
+    current_media = user_data.get("upload_as", "video")
+
+    text = f"📂 **Media Settings**\n\nCᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{current_media.capitalize()}`\n\nSᴇʟᴇᴄᴛ ʜᴏᴡ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴜᴘʟᴏᴀᴅ ʏᴏᴜʀ ꜰɪʟᴇꜱ:"
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Video", callback_data="set_media_video"),
+            InlineKeyboardButton("Document", callback_data="set_media_document")
+        ],
+        [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
+    ])
+
+    await message.reply_text(text, reply_markup=keyboard)
+
+@app.on_callback_query(filters.regex(r"^set_media_(video|document)$"))
+async def set_media_callback_handler(client, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    data = callback_query.data
+    media_type = "video" if data == "set_media_video" else "document"
+
+    await update_user_data(user_id, {"upload_as": media_type})
+    await callback_query.answer(f"✅ Upload preference set to {media_type.capitalize()}", show_alert=True)
+
+    text = f"📂 **Media Settings**\n\nCᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{media_type.capitalize()}`\n\nSᴇʟᴇᴄᴛ ʜᴏᴡ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴜᴘʟᴏᴀᴅ ʏᴏᴜʀ ꜰɪʟᴇꜱ:"
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Video", callback_data="set_media_video"),
+            InlineKeyboardButton("Document", callback_data="set_media_document")
+        ],
+        [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
+    ])
+    try:
+        await callback_query.message.edit_text(text, reply_markup=keyboard)
+    except:
+        pass
 
 @app.on_message(filters.incoming & filters.command([Command.CANCEL, f"{Command.CANCEL}@{BOT_USERNAME}"]) & is_auth)
 async def cancel_handler(client, message):
