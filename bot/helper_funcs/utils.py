@@ -45,6 +45,7 @@ async def add_task(task_info):
     try:
         # Safer cleanup of downloads directory
         from bot import DOWNLOAD_LOCATION
+        os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
         if os.path.exists(DOWNLOAD_LOCATION):
             for file in os.listdir(DOWNLOAD_LOCATION):
                 file_path = os.path.join(DOWNLOAD_LOCATION, file)

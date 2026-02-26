@@ -157,6 +157,7 @@ async def incoming_compress_message_f(update):
     
     try:
         d_start = time.time()
+        os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
         status = DOWNLOAD_LOCATION + "/status.json"
         with open(status, 'w') as f:
             statusMsg = {

@@ -71,7 +71,13 @@ async def media_info(filepath):
         process = await asyncio.create_subprocess_exec(
             *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.wait()
+            LOGGER.error(f"ffprobe timed out for {filepath}")
+            return {}
 
         if process.returncode != 0:
             LOGGER.error(f"ffprobe error: {stderr.decode()}")
@@ -92,9 +98,11 @@ def get_duration(filepath):
             return safe_float_convert(result.stdout.strip())
 
         # Fallback to hachoir
-        metadata = extractMetadata(createParser(filepath))
-        if metadata and metadata.has('duration'):
-            return safe_float_convert(metadata.get('duration').total_seconds())
+        parser = createParser(filepath)
+        if parser:
+            metadata = extractMetadata(parser)
+            if metadata and metadata.has('duration'):
+                return safe_float_convert(metadata.get('duration').total_seconds())
     except Exception as e:
         LOGGER.error(f"Error getting duration: {e}")
     return 0
@@ -274,13 +282,22 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     v_res = resolution[0] if resolution else "1280x720"
     a_bitrate = audio_b[0] if audio_b else "128k"
 
+    # Resolve resolution string to width:height
+    if 'x' in v_res:
+        res_w, res_h = v_res.split('x')
+    elif ':' in v_res:
+        res_w, res_h = v_res.split(':')
+    else:
+        # Assume it's height and keep aspect ratio
+        res_w, res_h = "-2", v_res
+
     # FFmpeg command
     cmd = [
         'ffmpeg', '-hide_banner', '-loglevel', 'warning',
         '-i', video_file,
         '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',  # Explicit stream mapping
         '-c:v', v_codec, '-crf', str(v_crf), '-preset', v_preset,
-        '-vf', f"scale={v_res.replace('x', ':')}:force_original_aspect_ratio=decrease,format=yuv420p",
+        '-vf', f"scale={res_w}:{res_h}:force_original_aspect_ratio=decrease,format=yuv420p",
         '-c:a', 'libopus', '-b:a', a_bitrate,
         '-c:s', 'copy',
         '-y', output_file
@@ -301,7 +318,7 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
         return None
 
     os.makedirs(output_directory, exist_ok=True)
-    output_file = os.path.join(output_directory, f"trimmed_{int(time.time())}.mp4")
+    output_file = os.path.join(output_directory, f"trimmed_{int(time.time())}.mkv")
 
     start_s = safe_float_convert(start_time)
     end_s = safe_float_convert(end_time)
@@ -313,7 +330,9 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
     ]
 
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    await process.communicate()
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        LOGGER.error(f"Trim video failed (code {process.returncode}): {stderr.decode()}")
 
     return output_file if os.path.exists(output_file) else None
 
@@ -325,10 +344,17 @@ async def merge_videos(video_list, output_path, bot, message, total_duration):
     if not video_list:
         return None
     
+    # Ensure output is .mkv for better compatibility with copied streams
+    if not output_path.endswith('.mkv'):
+        output_path = os.path.splitext(output_path)[0] + '.mkv'
+
     list_file = os.path.join(DOWNLOAD_LOCATION, f"merge_list_{message.id}_{int(time.time())}.txt")
     with open(list_file, 'w') as f:
         for video in video_list:
-            abs_path = os.path.abspath(video).replace("'", "'\\''")
+            # Proper escaping for FFmpeg concat demuxer:
+            # Single quotes must be escaped by doubling them OR using backslash.
+            # Here we use backslash escaping for quotes and backslashes.
+            abs_path = os.path.abspath(video).replace("\\", "\\\\").replace("'", "\\'")
             f.write(f"file '{abs_path}'\n")
 
     cmd = [
@@ -354,8 +380,8 @@ async def extract_audio(video_file, output_directory):
     return output_file if os.path.exists(output_file) else None
 
 async def add_audio(video_file, audio_file, output_directory):
-    output_file = os.path.join(output_directory, f"muxed_{int(time.time())}.mp4")
-    cmd = ['ffmpeg', '-i', video_file, '-i', audio_file, '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest', '-y', output_file]
+    output_file = os.path.join(output_directory, f"muxed_{int(time.time())}.mkv")
+    cmd = ['ffmpeg', '-i', video_file, '-i', audio_file, '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0?', '-map', '1:a?', '-shortest', '-y', output_file]
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
@@ -363,7 +389,7 @@ async def add_audio(video_file, audio_file, output_directory):
     return output_file if os.path.exists(output_file) else None
 
 async def remove_audio(video_file, output_directory):
-    output_file = os.path.join(output_directory, f"no_audio_{int(time.time())}.mp4")
+    output_file = os.path.join(output_directory, f"no_audio_{int(time.time())}.mkv")
     cmd = ['ffmpeg', '-i', video_file, '-an', '-vcodec', 'copy', '-y', output_file]
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
@@ -384,7 +410,7 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     if not os.path.exists(video_file) or not os.path.exists(subtitle_file): return None
 
     total_duration = get_duration(video_file)
-    output_file = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mp4")
+    output_file = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mkv")
 
     # Advanced escaping for subtitles filter
     # FFmpeg subtitles filter needs special escaping for paths
@@ -394,19 +420,19 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
         'ffmpeg', '-i', video_file,
         '-vf', f"subtitles='{escaped_path}'",
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
-        '-c:a', 'copy', '-y', output_file
+        '-c:a', 'aac', '-y', output_file
     ]
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Adding Hard Subtitles...")
     return output_file if success and os.path.exists(output_file) else None
 
 async def remove_subtitles(video_file, output_directory):
-    output_file = os.path.join(output_directory, f"no_sub_{int(time.time())}.mp4")
+    output_file = os.path.join(output_directory, f"no_sub_{int(time.time())}.mkv")
     cmd = ['ffmpeg', '-i', video_file, '-sn', '-c', 'copy', '-y', output_file]
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
-        LOGGER.error(f"Remove subtitles failed: {stderr.decode()}")
+        LOGGER.error(f"Remove subtitles failed (code {process.returncode}): {stderr.decode()}")
     return output_file if os.path.exists(output_file) else None
 
 # --- Thumbnail & Screenshot ---
