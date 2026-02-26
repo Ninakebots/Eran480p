@@ -166,12 +166,16 @@ async def handle_subtitles_task(message, options, sub_type):
 
         if not video_path or not sub_path: return await sent_message.edit_text("❌ Download failed.")
 
+        user_id = message.from_user.id if message.from_user else message.chat.id
+        from bot.helper_funcs.database import get_user_data
+        user_settings = await get_user_data(user_id)
+
         await sent_message.edit_text(f"📝 A𝖽𝖽𝗂𝗇𝗀 {sub_type} 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌...⚙️")
         from bot.helper_funcs.ffmpeg import add_soft_subtitles, add_hard_subtitles
         if sub_type == "soft":
             output_path = await add_soft_subtitles(video_path, sub_path, DOWNLOAD_LOCATION)
         else:
-            output_path = await add_hard_subtitles(video_path, sub_path, DOWNLOAD_LOCATION, bot, sent_message)
+            output_path = await add_hard_subtitles(video_path, sub_path, DOWNLOAD_LOCATION, bot, sent_message, settings=user_settings)
 
         if output_path:
             await output_handler(
@@ -221,9 +225,13 @@ async def handle_trim_task(message, options):
         video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
         if not video_path: return await sent_message.edit_text("❌ Download failed.")
 
+        user_id = message.from_user.id if message.from_user else message.chat.id
+        from bot.helper_funcs.database import get_user_data
+        user_settings = await get_user_data(user_id)
+
         await sent_message.edit_text(f"✂️ T𝗋𝗂𝗆𝗆𝗂𝗇𝗀 𝗏𝗂𝖽𝖾𝗈 ({start_time} - {end_time})...⚙️")
         from bot.helper_funcs.ffmpeg import cut_video
-        output_path = await cut_video(video_path, DOWNLOAD_LOCATION, start_time, end_time, bot, sent_message)
+        output_path = await cut_video(video_path, DOWNLOAD_LOCATION, start_time, end_time, bot, sent_message, settings=user_settings)
 
         if output_path:
             await output_handler(
