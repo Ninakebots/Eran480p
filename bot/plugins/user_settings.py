@@ -3,8 +3,10 @@ from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, 
 from bot.helper_funcs.menu_handler import menu_handler
 from bot.helper_funcs.database import get_user_data, update_user_data
 from bot.helper_funcs.utils import is_auth
+from bot import app
 import asyncio
 import logging
+import os
 
 active_sessions = {}
 
@@ -12,8 +14,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@Client.on_message(filters.command("us") & is_auth)
-async def user_settings(client: Client, message: Message):
+@app.on_message(filters.command(["us", "usersettings"]) & is_auth)
+async def user_settings(client, message: Message):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name
 
@@ -56,8 +60,10 @@ async def wait_for_user_input(client: Client, user_id: int, chat_id: int, timeou
         active_sessions.pop(user_id, None)
 
 
-@Client.on_message(filters.private & filters.text)
-async def handle_private_message(client: Client, message: Message):
+@app.on_message(filters.private & filters.text)
+async def handle_private_message(client, message: Message):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
     if user_id in active_sessions and active_sessions[user_id]["chat_id"] == message.chat.id:
         future = active_sessions[user_id]["future"]
@@ -77,12 +83,14 @@ def parse_cb_data(data):
 
 # --- Menu Handlers ---
 
-@Client.on_callback_query(filters.regex(r"^close_menu$"))
-async def close_menu(client: Client, callback_query: CallbackQuery):
+@app.on_callback_query(filters.regex(r"^close_menu$"))
+async def close_menu(client, callback_query: CallbackQuery):
     await callback_query.message.delete()
 
-@Client.on_callback_query(filters.regex(r"^main_menu"))
-async def main_menu_handler(client: Client, callback_query: CallbackQuery):
+@app.on_callback_query(filters.regex(r"^main_menu"))
+async def main_menu_handler(client, callback_query: CallbackQuery):
+    if not callback_query.from_user:
+        return
     user_id = callback_query.from_user.id
     username = callback_query.from_user.username or callback_query.from_user.first_name
     _, context, _ = parse_cb_data(callback_query.data)
@@ -90,15 +98,19 @@ async def main_menu_handler(client: Client, callback_query: CallbackQuery):
     text, keyboard = await menu_handler.main_menu(user_id, username, context)
     await callback_query.message.edit_text(text, reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex(r"^util_menu"))
-async def utility_menu_handler(client: Client, callback_query: CallbackQuery):
+@app.on_callback_query(filters.regex(r"^util_menu"))
+async def utility_menu_handler(client, callback_query: CallbackQuery):
+    if not callback_query.from_user:
+        return
     user_id = callback_query.from_user.id
     _, context, _ = parse_cb_data(callback_query.data)
     text, keyboard = await menu_handler.utility_menu(user_id, context)
     await callback_query.message.edit_text(text, reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex(r"^enc_menu"))
-async def encoding_menu_handler(client: Client, callback_query: CallbackQuery):
+@app.on_callback_query(filters.regex(r"^enc_menu"))
+async def encoding_menu_handler(client, callback_query: CallbackQuery):
+    if not callback_query.from_user:
+        return
     user_id = callback_query.from_user.id
     _, context, _ = parse_cb_data(callback_query.data)
     text, keyboard = await menu_handler.encoding_settings_menu(user_id, context)
@@ -106,8 +118,10 @@ async def encoding_menu_handler(client: Client, callback_query: CallbackQuery):
 
 # --- Encoding Settings Submenus ---
 
-@Client.on_callback_query(filters.regex(r"^set_(codec|res|crf|pre|aud)"))
-async def set_encoding_setting_handler(client: Client, callback_query: CallbackQuery):
+@app.on_callback_query(filters.regex(r"^set_(codec|res|crf|pre|aud)"))
+async def set_encoding_setting_handler(client, callback_query: CallbackQuery):
+    if not callback_query.from_user:
+        return
     user_id = callback_query.from_user.id
     base, context, _ = parse_cb_data(callback_query.data)
 
@@ -124,8 +138,10 @@ async def set_encoding_setting_handler(client: Client, callback_query: CallbackQ
 
     await callback_query.message.edit_text(text, reply_markup=keyboard)
 
-@Client.on_callback_query(filters.regex(r"^upd_(codec|res|crf|pre|aud)_"))
-async def update_encoding_setting_handler(client: Client, callback_query: CallbackQuery):
+@app.on_callback_query(filters.regex(r"^upd_(codec|res|crf|pre|aud)_"))
+async def update_encoding_setting_handler(client, callback_query: CallbackQuery):
+    if not callback_query.from_user:
+        return
     user_id = callback_query.from_user.id
     base, context, _ = parse_cb_data(callback_query.data)
 
@@ -153,8 +169,10 @@ async def update_encoding_setting_handler(client: Client, callback_query: Callba
 
 # --- Media Tools Handlers ---
 
-@Client.on_callback_query(filters.regex(r"^(ext_aud|rem_aud|add_aud|trim_vid|soft_sub|hard_sub|rem_sub|m_info|sav_thumb|del_thumb)"))
-async def media_tools_callback_handler(client: Client, callback_query: CallbackQuery):
+@app.on_callback_query(filters.regex(r"^(ext_aud|rem_aud|add_aud|trim_vid|soft_sub|hard_sub|rem_sub|m_info|sav_thumb|del_thumb)"))
+async def media_tools_callback_handler(client, callback_query: CallbackQuery):
+    if not callback_query.from_user:
+        return
     user_id = callback_query.from_user.id
     base, context, reply_to_id = parse_cb_data(callback_query.data)
 

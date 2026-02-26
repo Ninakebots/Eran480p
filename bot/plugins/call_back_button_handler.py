@@ -81,7 +81,7 @@ async def button(bot, update: CallbackQuery):
         else:
             await update.answer("Process not found")
 
-    if (update.from_user.id == update.message.reply_to_message.from_user.id) or g:
+    if (update.from_user and update.message.reply_to_message and update.message.reply_to_message.from_user and (update.from_user.id == update.message.reply_to_message.from_user.id)) or g:
         if cb_data == "fuckingdo":
             # Check if user is an admin or authorized in DB
             is_authorized = await is_auth(bot, update)

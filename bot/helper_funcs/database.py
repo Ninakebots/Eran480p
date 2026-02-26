@@ -34,6 +34,8 @@ class Database:
     
 
     async def update_user_setting(self, user_id: int, key: str, value) -> bool:
+        if self.users is None:
+            return False
         try:
             await self.users.update_one(
                 {"user_id": user_id},
@@ -46,6 +48,8 @@ class Database:
             return False
 
     async def get_user_settings(self, user_id: int) -> dict:
+        if self.users is None:
+            return {}
         try:
             result = await self.users.find_one({"user_id": user_id})
             return result if result else {}
@@ -54,6 +58,8 @@ class Database:
             return {}
 
     async def update_user_data(self, user_id: int, data: dict) -> bool:
+        if self.users is None:
+            return False
         try:
             await self.users.update_one(
                 {"user_id": user_id},
@@ -67,6 +73,8 @@ class Database:
 
     # Authorization methods
     async def authorize_chat(self, chat_id: int) -> bool:
+        if self.auth is None:
+            return False
         try:
             await self.auth.update_one(
                 {"chat_id": chat_id},
@@ -79,6 +87,8 @@ class Database:
             return False
 
     async def unauthorize_chat(self, chat_id: int) -> bool:
+        if self.auth is None:
+            return False
         try:
             await self.auth.delete_one({"chat_id": chat_id})
             return True
@@ -87,6 +97,8 @@ class Database:
             return False
 
     async def is_chat_authorized(self, chat_id: int) -> bool:
+        if self.auth is None:
+            return False
         try:
             result = await self.auth.find_one({"chat_id": chat_id})
             return bool(result)

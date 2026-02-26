@@ -6,6 +6,8 @@ from bot.helper_funcs.utils import add_to_queue, is_auth
 
 @app.on_message(filters.incoming & filters.command([Command.MEDIAINFO, f"{Command.MEDIAINFO}@{BOT_USERNAME}"]) & is_auth)
 async def mediainfo_handler(client, message):
+    if not message.from_user:
+        return
     reply = message.reply_to_message
     if not reply or not (reply.video or reply.document):
         return await message.reply_text("❌ Reply to a video.")
@@ -14,6 +16,8 @@ async def mediainfo_handler(client, message):
 
 @app.on_message(filters.incoming & filters.command([Command.MERGE, f"{Command.MERGE}@{BOT_USERNAME}"]) & is_auth)
 async def merge_handler(client, message):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
     reply = message.reply_to_message
 
@@ -31,6 +35,8 @@ async def merge_handler(client, message):
 
 @app.on_message(filters.incoming & filters.command([Command.DONE, f"{Command.DONE}@{BOT_USERNAME}"]) & is_auth)
 async def done_handler(client, message):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
     if user_id not in merge_sessions or not merge_sessions[user_id]:
         return await message.reply_text("❌ No videos in your merge session. Use /merge to start.")
@@ -48,6 +54,8 @@ async def done_handler(client, message):
 
 @app.on_message(filters.incoming & (filters.video | filters.document) & is_auth, group=-1)
 async def collect_videos_for_merge(client, message):
+    if not message.from_user:
+        return
     user_id = message.from_user.id
     if user_id in merge_sessions:
         if message.video or (message.document and message.document.mime_type and message.document.mime_type.startswith("video/")):

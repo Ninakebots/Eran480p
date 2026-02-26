@@ -9,7 +9,7 @@ async def authorize_handler(client, message):
             chat_id = int(message.command[1])
         except ValueError:
             return await message.reply_text("❌ Invalid chat ID. Please provide a numeric ID.")
-    elif message.reply_to_message:
+    elif message.reply_to_message and message.reply_to_message.from_user:
         chat_id = message.reply_to_message.from_user.id
     else:
         return await message.reply_text("Provide a chat ID or reply to a message to authorize.")
@@ -26,7 +26,7 @@ async def unauthorize_handler(client, message):
             chat_id = int(message.command[1])
         except ValueError:
             return await message.reply_text("❌ Invalid chat ID. Please provide a numeric ID.")
-    elif message.reply_to_message:
+    elif message.reply_to_message and message.reply_to_message.from_user:
         chat_id = message.reply_to_message.from_user.id
     else:
         return await message.reply_text("Provide a chat ID or reply to a message to unauthorize.")
