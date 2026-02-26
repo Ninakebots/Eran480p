@@ -40,9 +40,9 @@ class Config(object):
 
     # Custom Messages
     START_PIC = get_config("START_PIC", "https://i.ibb.co/nM9Ypvmq/jsorg.jpg")
-    START_MESSAGE = get_config("START_MESSAGE", "Hᴇʟʟᴏ, \n<blockquote>Tʜɪꜱ ɪꜱ ᴀ Tᴇʟᴇɢʀᴀᴍ <b>Video Encoder Bot</b>. \n\n<b>Pʟᴇᴀꜱᴇ Sᴇɴᴅ ᴍᴇ ᴀɴʏ Tᴇʟᴇɢʀᴀᴍ Bɪɢ Vɪᴅᴇᴏ Fɪʟᴇ ɪ ᴡɪʟʟ Cᴏᴍᴘʀᴇꜱꜱ Iᴛ ᴀꜱ  Sᴍᴀʟʟ Vɪᴅᴇᴏ Fɪʟᴇ!</b> \n\n/help Fᴏʀ Mᴏʀᴇ Dᴇᴛᴀɪʟꜱ.</blockquote> \n✨ Eɴᴊᴏʏ.....")
-    HELP_MESSAGE = get_config("HELP_MESSAGE", "Hi, I am Video Compressor Bot\n\n<b>Available Commands:</b>\n1. Send any video to compress it.\n2. /merge - Start a merge session.\n3. /done - Finish and merge videos in session.\n4. /mediainfo - Reply to a video for MediaInfo (Telegraph).\n5. /hsub - Reply to a subtitle file (replied to a video) for hard subs.\n6. /trim - Usage: `/trim start_time end_time`")
-    ABOUT_MESSAGE = get_config("ABOUT_MESSAGE", "<blockquote><b>Mʏ Nᴀᴍᴇ:</b> Zᴀɴɪ Eɴᴄᴏᴅᴇʀ Bᴏᴛ\n<b>Lᴀɴɢᴜᴀɢᴇ:</b> Pʏᴛʜᴏɴ\n<b>Lɪʙʀᴀʀʏ:</b> Pʏʀᴏɢʀᴀᴍ\n<b>Dᴇᴠᴇʟᴏᴘᴇʀ:</b> @TheAlphaBotz</blockquote>")
+    START_MESSAGE = get_config("START_MESSAGE", "👋 **Hᴇʟʟᴏ {mention}!**\n\nI ᴀᴍ ᴀ Pᴏᴡᴇʀғᴜʟ **Vɪᴅᴇᴏ Eɴᴄᴏᴅᴇʀ Bᴏᴛ** ᴡʜɪᴄʜ ᴄᴀɴ Cᴏᴍᴘʀᴇss Vɪᴅᴇᴏs ᴛᴏ Sᴍᴀʟʟ Sɪᴢᴇ ᴡɪᴛʜᴏᴜᴛ ʟᴏsɪɴɢ ǫᴜᴀʟɪᴛʏ.\n\n<blockquote>Sᴇɴᴅ ᴍᴇ ᴀɴʏ Vɪᴅᴇᴏ ᴛᴏ Sᴛᴀʀᴛ Cᴏᴍᴘʀᴇssɪᴏɴ!</blockquote>\n\n**Mᴀɪɴᴛᴀɪɴᴇᴅ Bʏ: [𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾](https://t.me/Team_Wine)**")
+    HELP_MESSAGE = get_config("HELP_MESSAGE", "📖 **Hᴇʟᴘ Mᴇɴᴜ**\n\nI ᴄᴀɴ ᴄᴏᴍᴘʀᴇss, ᴍᴇʀɢᴇ, ᴀɴᴅ ᴇᴅɪᴛ ᴠɪᴅᴇᴏs.\n\n**Aᴠᴀɪʟᴀʙʟᴇ Cᴏᴍᴍᴀɴᴅs:**\n➥ /start - Sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ\n➥ /settings - Cʜᴇᴄᴋ ᴄᴜʀʀᴇɴᴛ Sᴇᴛᴛɪɴɢs\n➥ /us - Oᴘᴇɴ Usᴇʀ Sᴇᴛᴛɪɴɢs ᴍᴇɴᴜ\n➥ /merge - Sᴛᴀʀᴛ ᴀ ᴍᴇʀɢᴇ sᴇssɪᴏɴ\n➥ /done - Fɪɴɪsʜ ᴀɴᴅ ᴍᴇʀɢᴇ ᴠɪᴅᴇᴏs\n➥ /sub - Rᴇᴘʟʏ ᴛᴏ ᴠɪᴅᴇᴏ ᴛᴏ ᴀᴅᴅ sᴜʙᴛɪᴛʟᴇs\n➥ /mediainfo - Gᴇᴛ ᴅᴇᴛᴀɪʟᴇᴅ ᴍᴇᴅɪᴀ ɪɴғᴏ\n➥ /speedtest - Cʜᴇᴄᴋ sᴇʀᴠᴇʀ sᴘᴇᴇᴅ\n➥ /sysinfo - Gᴇᴛ sʏsᴛᴇᴍ sᴛᴀᴛs\n➥ /cancel - Cᴀɴᴄᴇʟ ᴀɴ ᴀᴄᴛɪᴠᴇ ᴛᴀsᴋ\n\n**Hᴏᴡ ᴛᴏ ᴜsᴇ:**\n1. Jᴜsᴛ sᴇɴᴅ ᴀɴʏ ᴠɪᴅᴇᴏ ᴛᴏ ᴀᴜᴛᴏ-ᴄᴏᴍᴘʀᴇss.\n2. Usᴇ /us ʀᴇᴘʟɪᴇᴅ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴛᴏ ᴀᴄᴄᴇss ᴛᴏᴏʟs ʟɪᴋᴇ Tʀɪᴍ, Aᴜᴅɪᴏ Eᴅɪᴛɪɴɢ, ᴇᴛᴄ.")
+    ABOUT_MESSAGE = get_config("ABOUT_MESSAGE", "<blockquote>✨ **Aʙᴏᴜᴛ Tʜɪs Bᴏᴛ** ✨\n\nI ᴀᴍ ᴀ sᴏᴘʜɪsᴛɪᴄᴀᴛᴇᴅ ᴠɪᴅᴇᴏ ᴘʀᴏᴄᴇssɪɴɢ ʙᴏᴛ ʙᴜɪʟᴛ ᴡɪᴛʜ Pʏᴛʜᴏɴ ᴀɴᴅ FFᴍᴘᴇɢ.\n\n<b>🏷 Nᴀᴍᴇ:</b> Zᴀɴɪ Eɴᴄᴏᴅᴇʀ Bᴏᴛ\n<b>🐍 Lᴀɴɢᴜᴀɢᴇ:</b> Python 3.10+\n<b>📚 Lɪʙʀᴀʀʏ:</b> Pyrogram\n<b>👨‍💻 Dᴇᴠᴇʟᴏᴘᴇʀ:</b> @TheAlphaBotz\n<b>📢 Cʜᴀɴɴᴇʟ:</b> @Team_Wine</blockquote>")
     
     # MongoDB Settings
     MONGODB_URL = get_config(

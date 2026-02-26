@@ -96,11 +96,14 @@ async def get_video_duration_and_bitrate(file_path):
             return 0, 0
 
 async def incoming_start_message_f(bot, update):
+    mention = update.from_user.mention if update.from_user else "User"
+    start_text = Localisation.START_TEXT.format(mention=mention)
+
     if Config.START_PIC:
         await bot.send_photo(
             chat_id=update.chat.id,
             photo=Config.START_PIC,
-            caption=Localisation.START_TEXT,
+            caption=start_text,
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
@@ -117,7 +120,7 @@ async def incoming_start_message_f(bot, update):
     else:
         await bot.send_message(
             chat_id=update.chat.id,
-            text=Localisation.START_TEXT,
+            text=start_text,
             reply_markup=InlineKeyboardMarkup(
                 [
                     [

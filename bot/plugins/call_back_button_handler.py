@@ -24,42 +24,80 @@ async def button(bot, update: CallbackQuery):
         g = False
 
     if cb_data == "help":
-        await update.message.edit_text(
-            text=Localisation.HELP_MESSAGE,
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton(Localisation.BACK_BUTTON, callback_data="start_back")]
-                ]
+        if update.message.photo:
+            await update.edit_message_caption(
+                caption=Localisation.HELP_MESSAGE,
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton(Localisation.BACK_BUTTON, callback_data="start_back")]
+                    ]
+                )
             )
-        )
+        else:
+            await update.edit_message_text(
+                text=Localisation.HELP_MESSAGE,
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton(Localisation.BACK_BUTTON, callback_data="start_back")]
+                    ]
+                )
+            )
         return
 
     elif cb_data == "about":
-        await update.message.edit_text(
-            text=Localisation.ABOUT_TEXT,
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [InlineKeyboardButton(Localisation.BACK_BUTTON, callback_data="start_back")]
-                ]
+        if update.message.photo:
+            await update.edit_message_caption(
+                caption=Localisation.ABOUT_TEXT,
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton(Localisation.BACK_BUTTON, callback_data="start_back")]
+                    ]
+                )
             )
-        )
+        else:
+            await update.edit_message_text(
+                text=Localisation.ABOUT_TEXT,
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [InlineKeyboardButton(Localisation.BACK_BUTTON, callback_data="start_back")]
+                    ]
+                )
+            )
         return
 
     elif cb_data == "start_back":
-        await update.message.edit_text(
-            text=Localisation.START_TEXT,
-            reply_markup=InlineKeyboardMarkup(
-                [
+        mention = update.from_user.mention if update.from_user else "User"
+        start_text = Localisation.START_TEXT.format(mention=mention)
+        if update.message.photo:
+            await update.edit_message_caption(
+                caption=start_text,
+                reply_markup=InlineKeyboardMarkup(
                     [
-                        InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
-                    ],
-                    [
-                        InlineKeyboardButton(Localisation.HELP_BUTTON, callback_data="help"),
-                        InlineKeyboardButton(Localisation.ABOUT_BUTTON, callback_data="about")
+                        [
+                            InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
+                        ],
+                        [
+                            InlineKeyboardButton(Localisation.HELP_BUTTON, callback_data="help"),
+                            InlineKeyboardButton(Localisation.ABOUT_BUTTON, callback_data="about")
+                        ]
                     ]
-                ]
+                )
             )
-        )
+        else:
+            await update.edit_message_text(
+                text=start_text,
+                reply_markup=InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton('𝖳𝖾𝖺𝗆 𝖶𝗂𝗇𝖾', url='https://t.me/Team_Wine')
+                        ],
+                        [
+                            InlineKeyboardButton(Localisation.HELP_BUTTON, callback_data="help"),
+                            InlineKeyboardButton(Localisation.ABOUT_BUTTON, callback_data="about")
+                        ]
+                    ]
+                )
+            )
         return
 
     if cb_data.startswith("cancel_"):
