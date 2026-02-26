@@ -440,6 +440,23 @@ async def extract_audio(video_file, output_directory):
         LOGGER.error(f"Extract audio failed: {stderr.decode()}")
     return output_file if os.path.exists(output_file) else None
 
+async def extract_subtitles(video_file, output_directory):
+    if not os.path.exists(video_file): return None
+    # We'll try to extract the first subtitle stream
+    output_file = os.path.join(output_directory, f"sub_{int(time.time())}.srt")
+    cmd = ['ffmpeg', '-i', video_file, '-map', '0:s:0', '-c:s', 'srt', '-y', output_file]
+    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        LOGGER.error(f"Extract subtitles failed: {stderr.decode()}")
+        # Fallback to .ass if srt fails or isn't compatible
+        output_file = os.path.join(output_directory, f"sub_{int(time.time())}.ass")
+        cmd = ['ffmpeg', '-i', video_file, '-map', '0:s:0', '-c:s', 'ass', '-y', output_file]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+
+    return output_file if os.path.exists(output_file) and os.path.getsize(output_file) > 0 else None
+
 async def add_audio(video_file, audio_file, output_directory):
     output_file = os.path.join(output_directory, f"muxed_{int(time.time())}.mkv")
     cmd = ['ffmpeg', '-i', video_file, '-i', audio_file, '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0?', '-map', '1:a?', '-shortest', '-y', output_file]
