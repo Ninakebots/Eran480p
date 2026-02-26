@@ -54,6 +54,15 @@ def cleanup_temp_files(file_paths):
         except Exception as e:
             LOGGER.warning(f"Could not clean up {filepath}: {e}")
 
+def validate_video_file(filepath):
+    """Check if the file has at least one video stream."""
+    try:
+        cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', filepath]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        return result.returncode == 0 and bool(result.stdout.strip())
+    except Exception:
+        return False
+
 # --- Metadata Functions ---
 
 async def media_info(filepath):
@@ -233,9 +242,12 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
         stdout, stderr = await process.communicate()
         if process.returncode == 0:
             success = True
+            LOGGER.info(f"FFmpeg process completed successfully (PID: {process.pid})")
         else:
-            if stderr:
-                LOGGER.error(f"FFmpeg failed with return code {process.returncode}. Error: {stderr.decode()}")
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            LOGGER.error(f"FFmpeg failed (PID: {process.pid}, Code: {process.returncode}): {error_msg}")
+            # Log the command that failed for easier debugging
+            LOGGER.debug(f"Failed command: {' '.join(cmd)}")
             success = False
 
     except Exception as e:
@@ -298,17 +310,32 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         # Assume it's height and keep aspect ratio
         res_w, res_h = "-2", v_res
 
+    # Check if video has a video stream
+    has_video = validate_video_file(video_file)
+
     # FFmpeg command
     cmd = [
         'ffmpeg', '-hide_banner', '-loglevel', 'warning',
         '-i', video_file,
         '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',  # Explicit stream mapping
-        '-c:v', v_codec, '-crf', str(v_crf), '-preset', v_preset,
-        '-vf', f"scale={res_w}:{res_h}:force_original_aspect_ratio=decrease,format=yuv420p",
+    ]
+
+    if has_video:
+        cmd.extend([
+            '-c:v', v_codec, '-crf', str(v_crf), '-preset', v_preset,
+            '-vf', f"scale={res_w}:{res_h}:force_original_aspect_ratio=decrease,format=yuv420p",
+        ])
+    else:
+        # If no video stream, just copy everything else or fail?
+        # For a "video compressor", we might want to just copy if it's audio only
+        # but let's at least not use the scale filter.
+        cmd.extend(['-c:v', 'copy'])
+
+    cmd.extend([
         '-c:a', 'libopus', '-b:a', a_bitrate,
         '-c:s', 'copy',
         '-y', output_file
-    ]
+    ])
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Compressing Video...")
 
@@ -524,10 +551,3 @@ async def get_media_info_text(filepath):
 
     return "\n".join(output).strip()
 
-def validate_video_file(filepath):
-    try:
-        cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', filepath]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-        return result.returncode == 0 and bool(result.stdout.strip())
-    except Exception:
-        return False

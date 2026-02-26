@@ -18,6 +18,7 @@ from bot.plugins.encoding_handlers import *
 from bot.plugins.media_tools import *
 from bot.plugins.utility_handlers import *
 from bot.plugins.auth_handlers import *
+from bot.plugins.user_settings import *
 from bot.plugins.call_back_button_handler import button as admin_button_handler
 from bot.commands import Command
 
@@ -142,6 +143,8 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & (filters.video | filters.document) & is_auth)
     async def video_or_document_handler(app, message):
+        if not message.from_user:
+            return
         query = await message.reply_text("⏰ Added to queue...\nPlease be patient, compression will start soon", quote=True)
         from bot.helper_funcs.utils import add_to_queue
         await add_to_queue(message, "compress")

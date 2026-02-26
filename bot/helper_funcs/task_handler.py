@@ -310,9 +310,10 @@ async def handle_merge_task(message, options):
         if total_duration == 0:
             total_duration = 1 # Avoid division by zero
 
-        output_path = os.path.join(DOWNLOAD_LOCATION, f"merged_{int(time.time())}.mp4")
+        # We start with .mp4 but merge_videos might change it to .mkv
+        requested_output_path = os.path.join(DOWNLOAD_LOCATION, f"merged_{int(time.time())}.mp4")
 
-        result = await merge_videos(downloaded_videos, output_path, bot, sent_message, total_duration)
+        result = await merge_videos(downloaded_videos, requested_output_path, bot, sent_message, total_duration)
 
         if result and os.path.exists(result):
             await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝗆𝖾𝗋𝗀𝖾𝖽 𝗏𝗂𝖽𝖾𝗈...")
@@ -336,5 +337,7 @@ async def handle_merge_task(message, options):
     finally:
         for p in downloaded_videos:
             if p and os.path.exists(p): os.remove(p)
-        if 'output_path' in locals() and os.path.exists(output_path):
-            os.remove(output_path)
+        # Use result for cleanup if it was set, otherwise fallback to requested_output_path
+        actual_output = result if 'result' in locals() and result else (requested_output_path if 'requested_output_path' in locals() else None)
+        if actual_output and os.path.exists(actual_output):
+            os.remove(actual_output)

@@ -134,6 +134,8 @@ async def incoming_start_message_f(bot, update):
         )
     
 async def incoming_compress_message_f(update, user_settings=None):
+    if not update.from_user:
+        return
     isAuto = True
     d_start = time.time()
     c_start = time.time()
@@ -153,7 +155,11 @@ async def incoming_compress_message_f(update, user_settings=None):
     bst_now = utc_now + datetime.timedelta(minutes=00, hours=6)
     bst = bst_now.strftime("%d/%m/%Y, %H:%M:%S")
     now = f"\n{ist} (GMT+05:30)`\n`{bst} (GMT+06:00)"
-    download_start = await bot.send_message(chat_id, f"<blockquote>**𝙱𝚘𝚝 𝙱𝚎𝚌𝚘𝚖𝚎 𝙱𝚞𝚜𝚢 𝙽𝚘𝚠...⛈**</blockquote>")
+    download_start = None
+    try:
+        download_start = await bot.send_message(chat_id, f"<blockquote>**𝙱𝚘𝚝 𝙱𝚎𝚌𝚘𝚖𝚎 𝙱𝚞𝚜𝚢 𝙽𝚘𝚠...⛈**</blockquote>")
+    except Exception as e:
+        LOGGER.error(f"Failed to send busy message to log channel: {e}")
     
     try:
         d_start = time.time()
@@ -186,8 +192,10 @@ async def incoming_compress_message_f(update, user_settings=None):
             LOGGER.error("Download failed or was cancelled, video path is None")
             try:
                 await sent_message.edit_text(text="Dᴏᴡɴʟᴏᴀᴅ Fᴀɪʟᴇᴅ 🛑")
-                await bot.send_message(chat_id, f"<blockquote>**𝙵𝚒𝚕𝚎 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙵𝚊𝚒𝚕𝚎𝚍.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
-                await download_start.delete()
+                try:
+                    await bot.send_message(chat_id, f"<blockquote>**𝙵𝚒𝚕𝚎 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙵𝚊𝚒𝚕𝚎𝚍.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                except: pass
+                if download_start: await download_start.delete()
             except:
                 pass
             return
@@ -196,8 +204,10 @@ async def incoming_compress_message_f(update, user_settings=None):
         LOGGER.error(f"Download error: {str(e)}")
         try:
             await sent_message.edit_text(text=f"Download error: {str(e)[:100]}")
-            await bot.send_message(chat_id, f"<blockquote>**𝙵𝚒𝚕𝚎 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙵𝚊𝚒𝚕𝚎𝚍: {str(e)[:50]}\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
-            await download_start.delete()
+            try:
+                await bot.send_message(chat_id, f"<blockquote>**𝙵𝚒𝚕𝚎 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙵𝚊𝚒𝚕𝚎𝚍: {str(e)[:50]}\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+            except: pass
+            if download_start: await download_start.delete()
         except:
             pass
         return
@@ -218,8 +228,10 @@ async def incoming_compress_message_f(update, user_settings=None):
             LOGGER.error(f"Invalid video duration: {duration}")
             try:
                 await sent_message.edit_text(text="⚠️ Gᴇᴛᴛɪɴɢ Vɪᴅᴇᴏ Mᴇᴛᴀ Dᴀᴛᴀ Fᴀɪʟᴇᴅ ⚠️")
-                await bot.send_message(chat_id, f"<blockquote>**𝙵𝚒𝚕𝚎 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙵𝚊𝚒𝚕𝚎𝚍 - Invalid video format.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
-                await download_start.delete()
+                try:
+                    await bot.send_message(chat_id, f"<blockquote>**𝙵𝚒𝚕𝚎 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙵𝚊𝚒𝚕𝚎𝚍 - Invalid video format.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                except: pass
+                if download_start: await download_start.delete()
             except:
                 pass                    
             return
@@ -250,12 +262,15 @@ async def incoming_compress_message_f(update, user_settings=None):
         
         # Clean up download start message
         try:
-            await download_start.delete()
+            if download_start: await download_start.delete()
         except:
             pass
             
         # Start compression
-        compress_start = await bot.send_message(chat_id, f"<blockquote>**𝙴𝚗𝚌𝚘𝚍𝚒𝚗𝚐 𝚅𝚒𝚍𝚎𝚘...⚙**</blockquote>")
+        compress_start = None
+        try:
+            compress_start = await bot.send_message(chat_id, f"<blockquote>**𝙴𝚗𝚌𝚘𝚍𝚒𝚗𝚐 𝚅𝚒𝚍𝚎𝚘...⚙**</blockquote>")
+        except: pass
         await sent_message.edit_text(text=Localisation.COMPRESS_START)
         
         c_start = time.time()
@@ -284,12 +299,14 @@ async def incoming_compress_message_f(update, user_settings=None):
             LOGGER.exception("Full traceback:")
             try:
                 await sent_message.edit_text(text=f"⚠️ Compression error: {str(e)[:100]} ⚠️")
-                await bot.send_message(chat_id, f"<blockquote>**𝚅𝚒𝚍𝚎𝚘 𝙲𝚘𝚖𝚙𝚛𝚎𝚜𝚜𝚒𝚘𝚗 𝚏𝚊𝚒𝚕𝚎𝚍: {str(e)[:50]}\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                try:
+                    await bot.send_message(chat_id, f"<blockquote>**𝚅𝚒𝚍𝚎𝚘 𝙲𝚘𝚖𝚙𝚛𝚎𝚜𝚜𝚒𝚘𝚗 𝚏𝚊𝚒𝚕𝚎𝚍: {str(e)[:50]}\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                except: pass
             except:
                 pass
             finally:
                 try:
-                    await compress_start.delete()
+                    if compress_start: await compress_start.delete()
                 except:
                     pass
             return
@@ -300,7 +317,9 @@ async def incoming_compress_message_f(update, user_settings=None):
             LOGGER.info("Compression stopped by user")
             try:
                 await sent_message.edit_text(text="Compression stopped by user")
-                await bot.send_message(chat_id, f"<blockquote>**𝚅𝚒𝚍𝚎𝚘 𝙲𝚘𝚖𝚙𝚛𝚎𝚜𝚜𝚒𝚘𝚗 𝚜𝚝𝚘𝚙𝚙𝚎𝚍.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                try:
+                    await bot.send_message(chat_id, f"<blockquote>**𝚅𝚒𝚍𝚎𝚘 𝙲𝚘𝚖𝚙𝚛𝚎𝚜𝚜𝚒𝚘𝚗 𝚜𝚝𝚘𝚙𝚙𝚎𝚍.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                except: pass
             except:
                 pass
             return
@@ -312,12 +331,15 @@ async def incoming_compress_message_f(update, user_settings=None):
             
             # Clean up compression message
             try:
-                await compress_start.delete()
+                if compress_start: await compress_start.delete()
             except:
                 pass
                 
             # Start upload
-            upload_start = await bot.send_message(chat_id, f"<blockquote>**𝚄𝚙𝚕𝚘𝚊𝚍𝚒𝚗𝚐 𝚅𝚒𝚍𝚎𝚘 𝚘𝚗 𝚃𝙶...📥**</blockquote>")
+            upload_start = None
+            try:
+                upload_start = await bot.send_message(chat_id, f"<blockquote>**𝚄𝚙𝚕𝚘𝚊𝚍𝚒𝚗𝚐 𝚅𝚒𝚍𝚎𝚘 𝚘𝚗 𝚃𝙶...📥**</blockquote>")
+            except: pass
             await sent_message.edit_text(text=Localisation.UPLOAD_START)
             
             u_start = time.time()
@@ -364,7 +386,9 @@ async def incoming_compress_message_f(update, user_settings=None):
                     pass
                     
                 # Send completion message
-                await bot.send_message(chat_id, f"<blockquote>**𝙴𝙽𝙲𝙾𝙳𝙴𝙳 𝚄𝚙𝚕𝚘𝚊𝚍 𝙳𝚘𝚗𝚎.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                try:
+                    await bot.send_message(chat_id, f"<blockquote>**𝙴𝙽𝙲𝙾𝙳𝙴𝙳 𝚄𝚙𝚕𝚘𝚊𝚍 𝙳𝚘𝚗𝚎.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                except: pass
                 
                 # Update caption with upload time
                 if upload and upload.caption:
@@ -407,24 +431,28 @@ async def incoming_compress_message_f(update, user_settings=None):
             LOGGER.error(f"Compression failed - output path is None or doesn't exist: {o}")
             try:
                 await sent_message.edit_text(text="⚠️ Cᴏᴍᴘʀᴇꜱꜱɪᴏɴ Fᴀɪʟᴇᴅ ⚠️")
-                await bot.send_message(chat_id, f"<blockquote>**𝚅𝚒𝚍𝚎𝚘 𝙲𝚘𝚖𝚙𝚛𝚎𝚜𝚜𝚒𝚘𝚗 𝚏𝚊𝚒𝚕𝚎𝚍.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                try:
+                    await bot.send_message(chat_id, f"<blockquote>**𝚅𝚒𝚍𝚎𝚘 𝙲𝚘𝚖𝚙𝚛𝚎𝚜𝚜𝚒𝚘𝚗 𝚏𝚊𝚒𝚕𝚎𝚍.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+                except: pass
             except:
                 pass
             finally:
                 try:
-                    await compress_start.delete()
+                    if compress_start: await compress_start.delete()
                 except:
                     pass
     else:
         LOGGER.error(f"Downloaded file doesn't exist: {saved_file_path}")
         try:
             await sent_message.edit_text(text="⚠️ Fᴀɪʟᴇᴅ Dᴏᴡɴʟᴏᴀᴅᴇᴅ Pᴀᴛʜ ɴᴏᴛ Exɪꜱᴛ ⚠️")
-            await bot.send_message(chat_id, f"<blockquote>**𝙵𝚒𝚕𝚎 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍𝚎𝚍 𝙴𝚛𝚛𝚘𝚛!\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+            try:
+                await bot.send_message(chat_id, f"<blockquote>**𝙵𝚒𝚕𝚎 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍𝚎𝚍 𝙴𝚛𝚛𝚘𝚛!\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
+            except: pass
         except:
             pass
         finally:
             try:
-                await download_start.delete()
+                if download_start: await download_start.delete()
             except:
                 pass
     
