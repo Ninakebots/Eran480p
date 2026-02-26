@@ -76,17 +76,13 @@ async def progress_for_pyrogram(
 
 
 def humanbytes(size):
-    # https://stackoverflow.com/a/49361727/4723940
-    # 2**10 = 1024
     if not size:
-        return ""
-    power = 2**10
-    n = 0
-    Dic_powerN = {0: ' ', 1: 'Ki', 2: 'Mi', 3: 'Gi', 4: 'Ti'}
-    while size > power:
-        size /= power
-        n += 1
-    return str(round(size, 2)) + " " + Dic_powerN[n] + 'B'
+        return "0 B"
+    for unit in ["B", "KB", "MB", "GB", "TB", "PB"]:
+        if size < 1024.0:
+            break
+        size /= 1024.0
+    return f"{size:.2f} {unit}"
 
 
 def TimeFormatter(milliseconds: int) -> str:

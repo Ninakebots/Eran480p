@@ -67,7 +67,10 @@ if __name__ == "__main__":
     @app.on_message(filters.incoming & filters.command(["crf", f"crf@{BOT_USERNAME}"]))
     async def changecrf(app, message):
         if message.chat.id in AUTH_USERS:
-            cr = message.text.split(" ", maxsplit=1)[1]
+            args = message.text.split()
+            if len(args) < 2:
+                return await message.reply_text("❌ Usage: `/crf 28`")
+            cr = args[1]
             crf.insert(0, f"{cr}")
             await message.reply_text(f"📊 I will be using : {cr} crf")
         else:
@@ -76,7 +79,10 @@ if __name__ == "__main__":
     @app.on_message(filters.incoming & filters.command(["resolution", f"resolution@{BOT_USERNAME}"]))
     async def changer(app, message):
         if message.chat.id in AUTH_USERS:
-            r = message.text.split(" ", maxsplit=1)[1]
+            args = message.text.split()
+            if len(args) < 2:
+                return await message.reply_text("❌ Usage: `/resolution 1280x720` or `/resolution 720`")
+            r = args[1]
             resolution.insert(0, f"{r}")
             await message.reply_text(f"🎬 I will be using : {r}")
         else:
@@ -85,7 +91,10 @@ if __name__ == "__main__":
     @app.on_message(filters.incoming & filters.command(["preset", f"preset@{BOT_USERNAME}"]))
     async def changepr(app, message):
         if message.chat.id in AUTH_USERS:
-            pop = message.text.split(" ", maxsplit=1)[1]
+            args = message.text.split()
+            if len(args) < 2:
+                return await message.reply_text("❌ Usage: `/preset veryfast`")
+            pop = args[1]
             preset.insert(0, f"{pop}")
             await message.reply_text(f"⚡ I will be using : {pop} preset")
         else:
@@ -94,7 +103,10 @@ if __name__ == "__main__":
     @app.on_message(filters.incoming & filters.command(["codec", f"codec@{BOT_USERNAME}"]))
     async def changecode(app, message):
         if message.chat.id in AUTH_USERS:
-            col = message.text.split(" ", maxsplit=1)[1]
+            args = message.text.split()
+            if len(args) < 2:
+                return await message.reply_text("❌ Usage: `/codec libx265`")
+            col = args[1]
             codec.insert(0, f"{col}")
             await message.reply_text(f"🎥 I will be using : {col} codec")
         else:
@@ -103,7 +115,10 @@ if __name__ == "__main__":
     @app.on_message(filters.incoming & filters.command(["audio", f"audio@{BOT_USERNAME}"]))
     async def changea(app, message):
         if message.chat.id in AUTH_USERS:
-            aud = message.text.split(" ", maxsplit=1)[1]
+            args = message.text.split()
+            if len(args) < 2:
+                return await message.reply_text("❌ Usage: `/audio 128k`")
+            aud = args[1]
             audio_b.insert(0, f"{aud}")
             await message.reply_text(f"🎵 I will be using : {aud} audio")
         else:
