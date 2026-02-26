@@ -1,9 +1,14 @@
 import os
+import logging
+import speedtest
+import subprocess
 from pyrogram import filters
 from bot import BOT_USERNAME, data, app
 from bot.commands import Command
-from bot.helper_funcs.utils import sysinfo, is_auth
+from bot.helper_funcs.utils import sysinfo, is_auth, hbs
 from bot.localisation import Localisation
+
+LOGGER = logging.getLogger(__name__)
 
 @app.on_message(filters.incoming & filters.command([Command.LIST, f"{Command.LIST}@{BOT_USERNAME}"]) & is_auth)
 async def list_handler(client, message):
@@ -25,12 +30,37 @@ async def sysinfo_handler(client, message):
 @app.on_message(filters.incoming & filters.command([Command.SPEEDTEST, f"{Command.SPEEDTEST}@{BOT_USERNAME}"]) & is_auth)
 async def speedtest_handler(client, message):
     sent = await message.reply_text("🏎 Running speed test...")
-    import subprocess
     try:
-        output = subprocess.check_output(['speedtest-cli', '--simple'], stderr=subprocess.STDOUT).decode()
-        await sent.edit_text(f"🏎 **Speed Test Results:**\n\n`{output}`")
+        st = speedtest.Speedtest(secure=True)
+        st.get_best_server()
+        st.download()
+        st.upload()
+        res = st.results.dict()
+
+        isp = res.get('client', {}).get('isp', 'Unknown')
+        server = res.get('server', {}).get('sponsor', 'Unknown')
+        country = res.get('server', {}).get('country', 'Unknown')
+        ping = res.get('ping', 0)
+        download = res.get('download', 0)
+        upload = res.get('upload', 0)
+
+        text = (
+            f"🏎 **Speed Test Results:**\n\n"
+            f"🌐 **ISP:** `{isp}`\n"
+            f"📡 **Server:** `{server}, {country}`\n\n"
+            f"⬇️ **Download:** `{hbs(download / 8)}/s`\n"
+            f"⬆️ **Upload:** `{hbs(upload / 8)}/s`\n"
+            f"🏓 **Ping:** `{ping} ms`"
+        )
+        await sent.edit_text(text)
     except Exception as e:
-        await sent.edit_text(f"❌ speedtest-cli failed or not installed.\nError: {e}")
+        LOGGER.error(f"Speedtest error: {e}")
+        # Fallback to simple speedtest-cli if available
+        try:
+            output = subprocess.check_output(['speedtest-cli', '--simple'], stderr=subprocess.STDOUT).decode()
+            await sent.edit_text(f"🏎 **Speed Test Results (Fallback):**\n\n`{output}`")
+        except Exception as err:
+            await sent.edit_text(f"❌ Speed test failed.\nError: {e}\nFallback Error: {err}")
 
 @app.on_message(filters.incoming & filters.command([Command.CANCEL, f"{Command.CANCEL}@{BOT_USERNAME}"]) & is_auth)
 async def cancel_handler(client, message):

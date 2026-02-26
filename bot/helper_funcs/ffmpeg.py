@@ -6,6 +6,7 @@ import json
 import subprocess
 import math
 import logging
+import shutil
 from contextlib import asynccontextmanager
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
@@ -520,30 +521,66 @@ async def remove_subtitles(video_file, output_directory):
 
 async def get_media_info_text(saved_file_path):
     try:
+        # Try using mediainfo CLI first if available
+        mediainfo_path = shutil.which("mediainfo")
+        if mediainfo_path:
+            process = await asyncio.create_subprocess_exec(
+                mediainfo_path, saved_file_path,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            if process.returncode == 0:
+                return stdout.decode().strip()
+
+        # Fallback to improved ffprobe formatter
         data = await media_info(saved_file_path)
         if not data:
             return "Unable to fetch media info."
 
-        info = "<b><u>Media Info</u></b>\n\n"
+        output = ""
+
+        # General Section
         if 'format' in data:
             f = data['format']
-            info += f"<b>Filename:</b> {os.path.basename(f.get('filename', 'Unknown'))}\n"
-            info += f"<b>Size:</b> {format_bytes(f.get('size', 0))}\n"
-            info += f"<b>Duration:</b> {TimeFormatter(float(f.get('duration', 0))*1000)}\n"
-            info += f"<b>Bitrate:</b> {int(f.get('bit_rate', 0)) // 1000} kbps\n"
+            output += "General\n"
+            output += f"Complete name                            : {os.path.basename(f.get('filename', 'Unknown'))}\n"
+            output += f"Format                                   : {f.get('format_name', 'Unknown').upper()}\n"
+            output += f"File size                                : {format_bytes(f.get('size', 0))}\n"
+            duration = float(f.get('duration', 0))
+            output += f"Duration                                 : {TimeFormatter(duration * 1000)}\n"
+            output += f"Overall bit rate                         : {int(f.get('bit_rate', 0)) // 1000} kbps\n"
+            output += "\n"
 
         if 'streams' in data:
-            for i, s in enumerate(data['streams']):
-                info += f"\n<b>Stream #{i} ({s.get('codec_type')}):</b>\n"
-                info += f"  <b>Codec:</b> {s.get('codec_name')}\n"
-                if s.get('codec_type') == 'video':
-                    info += f"  <b>Resolution:</b> {s.get('width')}x{s.get('height')}\n"
-                    info += f"  <b>FPS:</b> {s.get('avg_frame_rate')}\n"
-                elif s.get('codec_type') == 'audio':
-                    info += f"  <b>Channels:</b> {s.get('channels')}\n"
-                    info += f"  <b>Sample Rate:</b> {s.get('sample_rate')} Hz\n"
+            for s in data['streams']:
+                stype = s.get('codec_type', '').capitalize()
+                output += f"{stype}\n"
+                output += f"ID                                       : {s.get('index')}\n"
+                output += f"Format                                   : {s.get('codec_name', 'Unknown').upper()}\n"
+                output += f"Format/Info                              : {s.get('codec_long_name', 'Unknown')}\n"
 
-        return info
+                if stype == 'Video':
+                    output += f"Width                                    : {s.get('width')} pixels\n"
+                    output += f"Height                                   : {s.get('height')} pixels\n"
+                    output += f"Display aspect ratio                     : {s.get('display_aspect_ratio', 'Unknown')}\n"
+                    output += f"Frame rate                               : {s.get('avg_frame_rate', 'Unknown')} fps\n"
+                    output += f"Color space                              : {s.get('pix_fmt', 'Unknown')}\n"
+                elif stype == 'Audio':
+                    output += f"Format settings, Endianness              : {s.get('codec_tag_string', 'Unknown')}\n"
+                    output += f"Channel(s)                               : {s.get('channels', 'Unknown')} channels\n"
+                    output += f"Sampling rate                            : {s.get('sample_rate', 'Unknown')} Hz\n"
+                    output += f"Bit rate                                 : {int(s.get('bit_rate', 0)) // 1000} kbps\n"
+                    if 'tags' in s and 'language' in s['tags']:
+                        output += f"Language                                 : {s['tags']['language']}\n"
+                elif stype == 'Subtitle':
+                    if 'tags' in s and 'language' in s['tags']:
+                        output += f"Language                                 : {s['tags']['language']}\n"
+                    if 'tags' in s and 'title' in s['tags']:
+                        output += f"Title                                    : {s['tags']['title']}\n"
+                output += "\n"
+
+        return output.strip()
     except Exception as e:
         LOGGER.error(f"Error generating media info text: {e}")
         return f"Error: {e}"
