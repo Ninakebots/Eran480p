@@ -1,16 +1,19 @@
 from datetime import datetime as dt
 import os
+import time
 import logging
-from pyrogram import filters
+from pyrogram import Client, filters
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
-from pyrogram.types import CallbackQuery
+from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
 
 from bot import (
     APP_ID, API_HASH, AUTH_USERS, DOWNLOAD_LOCATION, LOGGER, TG_BOT_TOKEN, BOT_USERNAME, SESSION_NAME, data, app, AUTH_CHATS, 
-    crf, resolution, audio_b, preset, codec
+    crf, resolution, audio_b, preset, codec, GOFILE_TOKEN
 )
-from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo, is_auth
-from bot.helper_funcs.database import db
+from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo, is_auth, hbs
+from bot.helper_funcs.display_progress import progress_for_pyrogram
+from bot.helper_funcs.gofile import upload_gofile
+from bot.helper_funcs.database import db, get_user_data, update_user_data
 from bot.localisation import Localisation
 from bot.plugins.incoming_message_fn import incoming_start_message_f, incoming_compress_message_f, incoming_cancel_message_f
 from bot.plugins.status_message_fn import eval_message_f, exec_message_f, upload_log_file
@@ -20,8 +23,6 @@ from bot.plugins.media_tools import *
 from bot.plugins.utility_handlers import *
 from bot.plugins.auth_handlers import *
 from bot.plugins.user_settings import *
-from bot.plugins.gofile_handlers import *
-from bot.plugins.upload_settings import *
 from bot.plugins.call_back_button_handler import button as admin_button_handler
 from bot.commands import Command
 
@@ -142,6 +143,113 @@ if __name__ == "__main__":
         data.clear()
         await message.reply_text("📚 Queue cleared successfully")
 
+    @app.on_message(filters.incoming & filters.command([Command.GOFILE, f"{Command.GOFILE}@{BOT_USERNAME}"]) & is_auth)
+    async def gofile_handler(client, message):
+        sent_message = None
+        file_path = None
+        try:
+            reply = message.reply_to_message
+            if not reply or not (reply.video or reply.document or reply.audio or reply.animation):
+                return await message.reply_text("❌ Reply to a file to upload it to Gofile.io.")
+
+            sent_message = await message.reply_text("📥 **Downloading file...**", quote=True)
+
+            try:
+                start_time = time.time()
+                file_path = await client.download_media(
+                    message=reply,
+                    progress=progress_for_pyrogram,
+                    progress_args=(client, "📥 **Downloading...**", sent_message, start_time)
+                )
+
+                if not file_path:
+                    if sent_message:
+                        await sent_message.edit_text("❌ Download failed.")
+                    return
+
+                await sent_message.edit_text("📤 **Uploading to Gofile.io...**")
+
+                download_url = await upload_gofile(file_path, token=GOFILE_TOKEN)
+
+                if download_url:
+                    file_name = os.path.basename(file_path)
+                    file_size = hbs(os.path.getsize(file_path))
+                    await sent_message.edit_text(
+                        f"✅ **File uploaded successfully!**\n\n"
+                        f"📁 **File Name:** `{file_name}`\n"
+                        f"⚖️ **Size:** `{file_size}`\n\n"
+                        f"🔗 **Download Link:** {download_url}",
+                        disable_web_page_preview=True
+                    )
+                else:
+                    await sent_message.edit_text("❌ Gofile upload failed. The service might be down or the file is too large.")
+
+            except Exception as e:
+                LOGGER.error(f"Error during gofile upload process: {e}")
+                if sent_message:
+                    try:
+                        await sent_message.edit_text(f"❌ An error occurred during processing: `{e}`")
+                    except:
+                        pass
+                else:
+                    await message.reply_text(f"❌ An error occurred: `{e}`")
+        except Exception as e:
+            LOGGER.error(f"Top level error in gofile_handler: {e}")
+            try:
+                await message.reply_text(f"❌ Unexpected error: `{e}`")
+            except:
+                pass
+        finally:
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
+
+    @app.on_message(filters.command([Command.SETUPLOAD, f"{Command.SETUPLOAD}@{BOT_USERNAME}"]) & is_auth)
+    async def setupload_command_handler(client: Client, message: Message):
+        user_id = message.from_user.id
+        user_data = await get_user_data(user_id)
+        current_dest = user_data.get("upload_destination", "Telegram")
+
+        text = f"📤 **Upload Settings**\n\nCᴜʀʀᴇɴᴛ Dᴇꜱᴛɪɴᴀᴛɪᴏɴ: `{current_dest.capitalize()}`\n\nSᴇʟᴇᴄᴛ ᴡʜᴇʀᴇ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴜᴘʟᴏᴀᴅ ʏᴏᴜʀ ꜰɪʟᴇꜱ:"
+
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("Telegram", callback_data="set_upload_tg"),
+                InlineKeyboardButton("Gofile", callback_data="set_upload_gofile")
+            ],
+            [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
+        ])
+
+        await message.reply_text(text, reply_markup=keyboard)
+
+    @app.on_callback_query(filters.regex(r"^set_upload_(tg|gofile)$"))
+    async def set_upload_callback_handler(client: Client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        data = callback_query.data
+
+        dest = "telegram" if data == "set_upload_tg" else "gofile"
+
+        await update_user_data(user_id, {"upload_destination": dest})
+
+        await callback_query.answer(f"✅ Upload destination set to {dest.capitalize()}", show_alert=True)
+
+        # Update the message
+        text = f"📤 **Upload Settings**\n\nCᴜʀʀᴇɴᴛ Dᴇꜱᴛɪɴᴀᴛɪᴏɴ: `{dest.capitalize()}`\n\nSᴇʟᴇᴄᴛ ᴡʜᴇʀᴇ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴜᴘʟᴏᴀᴅ ʏᴏᴜʀ ꜰɪʟᴇꜱ:"
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("Telegram", callback_data="set_upload_tg"),
+                InlineKeyboardButton("Gofile", callback_data="set_upload_gofile")
+            ],
+            [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
+        ])
+
+        try:
+            await callback_query.message.edit_text(text, reply_markup=keyboard)
+        except Exception:
+            pass
+
     @app.on_message(filters.incoming & (filters.video | filters.document) & is_auth)
     async def video_or_document_handler(app, message):
         if not message.from_user:
@@ -156,7 +264,10 @@ if __name__ == "__main__":
 
     @app.on_message(filters.incoming & filters.command(["settings", f"settings@{BOT_USERNAME}"]) & is_auth)
     async def settings(app, message):
-        await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}")
+        user_id = message.from_user.id if message.from_user else message.chat.id
+        user_data = await get_user_data(user_id)
+        up_dest = user_data.get("upload_destination", "telegram")
+        await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}\n➥ Upload Destination: {up_dest.capitalize()}")
 
     @app.on_message(filters.incoming & filters.command(["stop", f"stop@{BOT_USERNAME}"]))
     async def stop_handler(app, message):

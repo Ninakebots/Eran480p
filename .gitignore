@@ -15,3 +15,4 @@ progress_*.txt
 status.json
 merge_list_*.txt
 verify_ffmpeg_cmd.py
+Zani.session*
