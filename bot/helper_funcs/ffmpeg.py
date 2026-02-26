@@ -285,7 +285,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     os.makedirs(output_directory, exist_ok=True)
 
     base_name = os.path.splitext(os.path.basename(video_file))[0]
-    output_file = os.path.join(output_directory, f"{base_name}.mkv")
+    output_file = os.path.join(output_directory, f"[Encoded] {base_name}.mkv")
 
     # Get settings from provided settings or globals
     if settings:

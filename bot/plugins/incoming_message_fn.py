@@ -139,7 +139,7 @@ async def incoming_compress_message_f(update, user_settings=None):
     d_start = time.time()
     c_start = time.time()
     u_start = time.time()
-    status = DOWNLOAD_LOCATION + "/status.json"
+    status = os.path.join(DOWNLOAD_LOCATION, "status.json")
     
     sent_message = await bot.send_message(
         chat_id=update.chat.id,
@@ -295,100 +295,18 @@ async def incoming_compress_message_f(update, user_settings=None):
             return
             
         if o and os.path.exists(o):
-            # Get file size for logging
-            file_size = os.path.getsize(o)
-            LOGGER.info(f"Compression successful: {o} (size: {humanbytes(file_size)})")
-            
-            # Clean up compression message
-            try:
-                if compress_start: await compress_start.delete()
-            except:
-                pass
-                
-            # Start upload
-            upload_start = None
-            await sent_message.edit_text(text=Localisation.UPLOAD_START)
-            
-            u_start = time.time()
-            caption = Localisation.COMPRESS_SUCCESS.replace('{}', downloaded_time, 1).replace('{}', compressed_time, 1)
-            
-            try:
-                # Upload document
-                upload = await bot.send_document(
-                    chat_id=update.chat.id,
-                    document=o,
-                    caption=caption,
-                    force_document=True,
-                    thumb=thumb_image_path if thumb_image_path and os.path.exists(thumb_image_path) else None,
-                    reply_to_message_id=update.id,
-                    progress=progress_for_pyrogram,
-                    progress_args=(
-                        bot,
-                        Localisation.UPLOAD_START,
-                        sent_message,
-                        u_start
-                    )
-                )
-                
-                if upload:
-                    LOGGER.info(f"Upload successful: {upload.id}")
-                    # Copy to dump channel if configured
-                    try:
-                        from bot.helper_funcs.utils import copy_to_dump_channel
-                        await copy_to_dump_channel(bot, upload, update.from_user.id if update.from_user else "Unknown")
-                    except Exception as e:
-                        LOGGER.error(f"Failed to copy to dump channel: {e}")
-
-                uploaded_time = TimeFormatter((time.time() - u_start)*1000)
-                
-                # Clean up messages
-                try:
-                    await sent_message.delete()
-                except:
-                    pass
-                    
-                try:
-                    await upload_start.delete()
-                except:
-                    pass
-                    
-                # Update caption with upload time
-                if upload and upload.caption:
-                    try:
-                        new_caption = upload.caption.replace('{}', uploaded_time)
-                        await upload.edit_caption(caption=new_caption)
-                    except Exception as e:
-                        LOGGER.error(f"Failed to edit caption: {e}")
-
-            except Exception as e:
-                LOGGER.error(f"Upload error: {str(e)}")
-                LOGGER.exception("Upload traceback:")
-                try:
-                    await sent_message.edit_text(text=f"⚠️ Upload error: {str(e)[:100]} ⚠️")
-                except:
-                    pass
-            finally:
-                # Cleanup files
-                try:
-                    if not is_custom_thumb and thumb_image_path and os.path.exists(thumb_image_path):
-                        os.remove(thumb_image_path)
-                        LOGGER.info(f"Removed thumbnail: {thumb_image_path}")
-                except Exception as e:
-                    LOGGER.error(f"Failed to remove thumbnail: {e}")
-                    
-                try:
-                    if o and os.path.exists(o):
-                        os.remove(o)
-                        LOGGER.info(f"Removed compressed file: {o}")
-                except Exception as e:
-                    LOGGER.error(f"Failed to remove compressed file: {e}")
-                    
-                try:
-                    if saved_file_path and os.path.exists(saved_file_path):
-                        os.remove(saved_file_path)
-                        LOGGER.info(f"Removed original file: {saved_file_path}")
-                except Exception as e:
-                    LOGGER.error(f"Failed to remove original file: {e}")
+            # Use centralized output_handler
+            from bot.helper_funcs.utils import output_handler
+            await output_handler(
+                bot=bot,
+                update=update,
+                output_path=o,
+                download_time=downloaded_time,
+                encoding_time=compressed_time,
+                thumb_path=thumb_image_path,
+                input_path=saved_file_path,
+                sent_message=sent_message
+            )
         else:
             LOGGER.error(f"Compression failed - output path is None or doesn't exist: {o}")
             try:
@@ -428,7 +346,7 @@ async def incoming_cancel_message_f(bot, update):
             pass
         return
 
-    status = DOWNLOAD_LOCATION + "/status.json"
+    status = os.path.join(DOWNLOAD_LOCATION, "status.json")
     if os.path.exists(status):
         inline_keyboard = []
         ikeyboard = []

@@ -26,7 +26,7 @@ from bot.helper_funcs.display_progress import (
     TimeFormatter,
     humanbytes
 )
-from bot.helper_funcs.utils import copy_to_dump_channel, upload_to_telegraph
+from bot.helper_funcs.utils import copy_to_dump_channel, upload_to_telegraph, output_handler
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 LOGGER = logging.getLogger(__name__)
@@ -90,16 +90,16 @@ async def handle_extract_audio_task(message, options):
         audio_path = await extract_audio(video_path, DOWNLOAD_LOCATION)
 
         if audio_path:
-            await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈...")
-            sent_audio = await bot.send_audio(chat_id=message.chat.id, audio=audio_path, reply_to_message_id=message.id)
-            if sent_audio:
-                await copy_to_dump_channel(bot, sent_audio, message.from_user.id if message.from_user else "Unknown")
-            await sent_message.delete()
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=audio_path,
+                input_path=video_path,
+                sent_message=sent_message
+            )
         else:
             await sent_message.edit_text("❌ Audio extraction failed.")
-
-        if video_path and os.path.exists(video_path): os.remove(video_path)
-        if audio_path and os.path.exists(audio_path): os.remove(audio_path)
+            if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
         await sent_message.edit_text(f"❌ Error: {e}")
 
@@ -118,16 +118,18 @@ async def handle_add_audio_task(message, options):
         output_path = await add_audio(video_path, audio_path, DOWNLOAD_LOCATION)
 
         if output_path:
-            await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝗋𝖾𝗌𝗎𝗅𝗍...")
-            sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
-            if sent_video:
-                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
-            await sent_message.delete()
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=output_path,
+                input_path=video_path,
+                sent_message=sent_message
+            )
+            if audio_path and os.path.exists(audio_path): os.remove(audio_path)
         else:
             await sent_message.edit_text("❌ Adding audio failed.")
-
-        for p in [video_path, audio_path, output_path]:
-            if p and os.path.exists(p): os.remove(p)
+            for p in [video_path, audio_path]:
+                if p and os.path.exists(p): os.remove(p)
     except Exception as e:
         await sent_message.edit_text(f"❌ Error: {e}")
 
@@ -142,14 +144,16 @@ async def handle_remove_audio_task(message, options):
         output_path = await remove_audio(video_path, DOWNLOAD_LOCATION)
 
         if output_path:
-            sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
-            if sent_video:
-                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
-            await sent_message.delete()
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=output_path,
+                input_path=video_path,
+                sent_message=sent_message
+            )
         else:
             await sent_message.edit_text("❌ Removing audio failed.")
-        if video_path and os.path.exists(video_path): os.remove(video_path)
-        if output_path and os.path.exists(output_path): os.remove(output_path)
+            if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
         await sent_message.edit_text(f"❌ Error: {e}")
 
@@ -170,14 +174,18 @@ async def handle_subtitles_task(message, options, sub_type):
             output_path = await add_hard_subtitles(video_path, sub_path, DOWNLOAD_LOCATION, bot, sent_message)
 
         if output_path:
-            sent_doc = await bot.send_document(chat_id=message.chat.id, document=output_path, reply_to_message_id=message.id)
-            if sent_doc:
-                await copy_to_dump_channel(bot, sent_doc, message.from_user.id if message.from_user else "Unknown")
-            await sent_message.delete()
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=output_path,
+                input_path=video_path,
+                sent_message=sent_message
+            )
+            if sub_path and os.path.exists(sub_path): os.remove(sub_path)
         else:
             await sent_message.edit_text(f"❌ Adding {sub_type} subtitles failed.")
-        for p in [video_path, sub_path, output_path]:
-            if p and os.path.exists(p): os.remove(p)
+            for p in [video_path, sub_path]:
+                if p and os.path.exists(p): os.remove(p)
     except Exception as e:
         await sent_message.edit_text(f"❌ Error: {e}")
 
@@ -192,14 +200,16 @@ async def handle_remove_subtitles_task(message, options):
         output_path = await remove_subtitles(video_path, DOWNLOAD_LOCATION)
 
         if output_path:
-            sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
-            if sent_video:
-                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
-            await sent_message.delete()
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=output_path,
+                input_path=video_path,
+                sent_message=sent_message
+            )
         else:
             await sent_message.edit_text("❌ Removing subtitles failed.")
-        if video_path and os.path.exists(video_path): os.remove(video_path)
-        if output_path and os.path.exists(output_path): os.remove(output_path)
+            if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
         await sent_message.edit_text(f"❌ Error: {e}")
 
@@ -216,14 +226,16 @@ async def handle_trim_task(message, options):
         output_path = await cut_video(video_path, DOWNLOAD_LOCATION, start_time, end_time, bot, sent_message)
 
         if output_path:
-            sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)
-            if sent_video:
-                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
-            await sent_message.delete()
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=output_path,
+                input_path=video_path,
+                sent_message=sent_message
+            )
         else:
             await sent_message.edit_text("❌ Trimming failed.")
-        if video_path and os.path.exists(video_path): os.remove(video_path)
-        if output_path and os.path.exists(output_path): os.remove(output_path)
+            if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
         await sent_message.edit_text(f"❌ Error: {e}")
 
@@ -315,28 +327,22 @@ async def handle_merge_task(message, options):
         result = await merge_videos(downloaded_videos, requested_output_path, bot, sent_message, total_duration)
 
         if result and os.path.exists(result):
-            await sent_message.edit_text("📤 U𝗉𝗅𝗈𝖺𝖽𝗂𝗇𝗀 𝗆𝖾𝗋𝗀𝖾𝖽 𝗏𝗂𝖽𝖾𝗈...")
-            sent_video = await bot.send_video(
-                chat_id=message.chat.id,
-                video=result,
-                caption=f"✅ Merged {len(video_messages)} videos successfully!",
-                reply_to_message_id=message.id,
-                progress=progress_for_pyrogram,
-                progress_args=(bot, "Uᴘʟᴏᴀᴅɪɴɢ...📤", sent_message, time.time())
+            # Use centralized output_handler
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=result,
+                sent_message=sent_message
             )
-            if sent_video:
-                await copy_to_dump_channel(bot, sent_video, message.from_user.id if message.from_user else "Unknown")
-            await sent_message.delete()
         else:
             await sent_message.edit_text("❌ Merging failed.")
 
     except Exception as e:
         LOGGER.error(f"Error in handle_merge_task: {e}")
-        await sent_message.edit_text(f"❌ Error: {e}")
+        try:
+            await sent_message.edit_text(f"❌ Error: {e}")
+        except:
+            pass
     finally:
         for p in downloaded_videos:
             if p and os.path.exists(p): os.remove(p)
-        # Use result for cleanup if it was set, otherwise fallback to requested_output_path
-        actual_output = result if 'result' in locals() and result else (requested_output_path if 'requested_output_path' in locals() else None)
-        if actual_output and os.path.exists(actual_output):
-            os.remove(actual_output)

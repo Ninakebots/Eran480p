@@ -147,6 +147,100 @@ async def copy_to_dump_channel(bot, message, user_id):
     except Exception as e:
         LOGGER.error(f"Error copying to dump channel: {e}")
 
+async def output_handler(bot, update, output_path, download_time=None, encoding_time=None, thumb_path=None, input_path=None, sent_message=None):
+    from bot.localisation import Localisation
+    from bot.helper_funcs.display_progress import progress_for_pyrogram, TimeFormatter
+    import time
+
+    u_start = time.time()
+    if not sent_message:
+        sent_message = await bot.send_message(chat_id=update.chat.id, text=Localisation.UPLOAD_START, reply_to_message_id=update.id)
+    else:
+        try:
+            await sent_message.edit_text(text=Localisation.UPLOAD_START)
+        except:
+            pass
+
+    try:
+        # Generate initial caption
+        d_time = download_time or "N/A"
+        e_time = encoding_time or "N/A"
+
+        # We use .replace to match existing style and support both indexed and non-indexed placeholders
+        # Step 5 will ensure COMPRESS_SUCCESS has 3 sets of {}
+        caption = Localisation.COMPRESS_SUCCESS.replace('{}', d_time, 1).replace('{}', e_time, 1)
+
+        # Upload
+        ext = output_path.split('.')[-1].lower()
+        common_args = {
+            'chat_id': update.chat.id,
+            'caption': caption.replace('{}', "Calculating...", 1),
+            'reply_to_message_id': update.id,
+            'progress': progress_for_pyrogram,
+            'progress_args': (bot, Localisation.UPLOAD_START, sent_message, u_start)
+        }
+
+        if ext in ['mp4', 'mkv', 'webm']:
+            upload = await bot.send_video(
+                video=output_path,
+                thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
+                supports_streaming=True,
+                **common_args
+            )
+        elif ext in ['mp3', 'm4a', 'ogg', 'opus']:
+            upload = await bot.send_audio(
+                audio=output_path,
+                thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
+                **common_args
+            )
+        else:
+            upload = await bot.send_document(
+                document=output_path,
+                thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
+                force_document=True,
+                **common_args
+            )
+
+        u_time = TimeFormatter((time.time() - u_start) * 1000)
+
+        if upload:
+            # Update caption with actual upload time
+            try:
+                final_caption = caption.replace('{}', u_time, 1)
+                await upload.edit_caption(caption=final_caption)
+            except Exception as e:
+                LOGGER.error(f"Error editing caption: {e}")
+
+            # Copy to dump channel
+            await copy_to_dump_channel(bot, upload, update.from_user.id if update.from_user else "Unknown")
+
+        try:
+            await sent_message.delete()
+        except:
+            pass
+
+    except Exception as e:
+        LOGGER.error(f"Upload error: {e}")
+        try:
+            await sent_message.edit_text(f"❌ Upload failed: {str(e)[:100]}")
+        except:
+            pass
+    finally:
+        # Centralized cleanup
+        user_id = update.from_user.id if update.from_user else "default"
+        custom_thumb = os.path.join("thumbnails", f"{user_id}.jpg")
+
+        for p in [output_path, thumb_path, input_path]:
+            if p and os.path.exists(p):
+                # Don't delete the custom thumbnail
+                if os.path.abspath(p) == os.path.abspath(custom_thumb):
+                    continue
+                try:
+                    if os.path.isfile(p): os.remove(p)
+                    elif os.path.isdir(p): shutil.rmtree(p)
+                except Exception as e:
+                    LOGGER.warning(f"Failed to cleanup {p}: {e}")
+
 TELEGRAPH_TOKEN = None
 
 async def upload_to_telegraph(title, content):
