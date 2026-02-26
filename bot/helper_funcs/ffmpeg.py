@@ -295,7 +295,15 @@ def get_encoding_settings(settings=None):
     elif ':' in v_res:
         res_w, res_h = v_res.split(':')
     else:
-        res_w, res_h = "-2", v_res
+        # User specified just a height, like "480"
+        if v_res == "480":
+            res_w, res_h = "854", "480"
+        elif v_res == "720":
+            res_w, res_h = "1280", "720"
+        elif v_res == "1080":
+            res_w, res_h = "1920", "1080"
+        else:
+            res_w, res_h = "-2", v_res
 
     return {
         'codec': v_codec,

@@ -15,6 +15,7 @@ async def get_server():
                     if data.get("status") == "ok":
                         servers = data.get("data", {}).get("servers", [])
                         if servers:
+                            # Picking the first server is generally fine as it's the recommended one
                             return servers[0].get("name")
     except Exception as e:
         LOGGER.error(f"Error getting gofile server: {e}")
@@ -28,12 +29,14 @@ async def upload_gofile(file_path, token=None):
         return None
 
     url = f"https://{server}.gofile.io/contents/uploadfile"
+    file_name = os.path.basename(file_path)
+
     try:
         # We use a context manager for the file to ensure it's closed correctly
-        # though FormData might handle it differently.
         with open(file_path, 'rb') as f:
             data = aiohttp.FormData()
-            data.add_field('file', f)
+            # Adding filename explicitly improves reliability
+            data.add_field('file', f, filename=file_name)
             if token:
                 data.add_field('token', token)
 
@@ -44,10 +47,10 @@ async def upload_gofile(file_path, token=None):
                         if result.get("status") == "ok":
                             return result.get("data", {}).get("downloadPage")
                         else:
-                            LOGGER.error(f"Gofile upload error: {result}")
+                            LOGGER.error(f"Gofile upload error for {file_name}: {result}")
                     else:
                         text = await response.text()
-                        LOGGER.error(f"Gofile upload failed with status {response.status}: {text}")
+                        LOGGER.error(f"Gofile upload failed for {file_name} with status {response.status}: {text}")
     except Exception as e:
-        LOGGER.error(f"Error in gofile upload: {e}")
+        LOGGER.error(f"Error in gofile upload for {file_name}: {e}")
     return None

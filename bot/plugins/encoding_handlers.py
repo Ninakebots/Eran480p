@@ -21,7 +21,7 @@ async def p480_handler(client, message):
     await message.reply_text("⏰ Added 480p task to queue...", quote=True)
     await add_to_queue(reply, "480p")
 
-@app.on_message(filters.incoming & filters.command([Command.P720, f"{Command.P720}@{BOT_USERNAME}", "720/"]) & is_auth)
+@app.on_message(filters.incoming & filters.command([Command.P720, f"{Command.P720}@{BOT_USERNAME}"]) & is_auth)
 async def p720_handler(client, message):
     reply = message.reply_to_message
     if not reply or not (reply.video or reply.document):
