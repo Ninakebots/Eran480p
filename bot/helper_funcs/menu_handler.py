@@ -2,28 +2,112 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.helper_funcs.database import get_user_data
 
 class MenuHandler:
-    async def main_menu(self, user_id, username):
+    async def main_menu(self, user_id, username, context=""):
         text = f"⚙️ **User Settings for** `{username}`\n\nSelect a category to customize your experience:"
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🛠 Utility Tools", callback_data="utility_menu")],
+            [InlineKeyboardButton("🎬 Encoding Settings", callback_data=f"enc_menu{context}")],
+            [InlineKeyboardButton("🛠 Media Tools", callback_data=f"util_menu{context}")],
             [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
         ])
         return text, keyboard
 
-    async def utility_menu(self, user_id):
+    async def utility_menu(self, user_id, context=""):
         text = (
-            "🛠 **Utility Tools**\n\n"
-            "**Merge:** Send `/merge` to start a session, then send videos.\n"
-            "**Audio:** Reply `/addaudio` to an audio file which is a reply to a video.\n"
-            "**Subtitles:** Reply `/sub` (soft) or `/hsub` (hard) to a subtitle file.\n\n"
-            "More tools coming soon!"
+            "🛠 **Media Tools**\n\n"
+            "Select a tool to process your media. If you haven't already, reply to a video with `/us` to use these tools."
         )
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎬 Merge", callback_data="util_merge"),
-             InlineKeyboardButton("🎵 Audio", callback_data="util_audio")],
-            [InlineKeyboardButton("📝 Subtitles", callback_data="util_sub")],
-            [InlineKeyboardButton("⬅️ Back", callback_data="main_menu")]
+            [InlineKeyboardButton("🎧 Extract Audio", callback_data=f"ext_aud{context}"),
+             InlineKeyboardButton("🔇 Rem Audio", callback_data=f"rem_aud{context}")],
+            [InlineKeyboardButton("🎵 Add Audio", callback_data=f"add_aud{context}"),
+             InlineKeyboardButton("✂️ Trim", callback_data=f"trim_vid{context}")],
+            [InlineKeyboardButton("📝 SoftSub", callback_data=f"soft_sub{context}"),
+             InlineKeyboardButton("🖼 HardSub", callback_data=f"hard_sub{context}")],
+            [InlineKeyboardButton("🗑 Rem Sub", callback_data=f"rem_sub{context}"),
+             InlineKeyboardButton("📊 MediaInfo", callback_data=f"m_info{context}")],
+            [InlineKeyboardButton("🖼 Save Thumb", callback_data=f"sav_thumb{context}"),
+             InlineKeyboardButton("🗑 Del Thumb", callback_data=f"del_thumb{context}")],
+            [InlineKeyboardButton("⬅️ Back", callback_data=f"main_menu{context}")]
         ])
         return text, keyboard
+
+    async def encoding_settings_menu(self, user_id, context=""):
+        user_settings = await get_user_data(user_id)
+
+        codec = user_settings.get('codec', 'libx264')
+        res = user_settings.get('resolution', '1280x720')
+        crf = user_settings.get('crf', '24')
+        preset = user_settings.get('preset', 'veryfast')
+        audio = user_settings.get('audio_b', '128k')
+
+        text = (
+            "🎬 **Encoding Settings**\n\n"
+            f"🎥 **Codec:** `{codec}`\n"
+            f"🎬 **Resolution:** `{res}`\n"
+            f"📊 **CRF:** `{crf}`\n"
+            f"⚡ **Preset:** `{preset}`\n"
+            f"🎵 **Audio Bitrate:** `{audio}`\n\n"
+            "Select a setting to change it:"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎥 Codec", callback_data=f"set_codec{context}"),
+             InlineKeyboardButton("🎬 Resolution", callback_data=f"set_res{context}")],
+            [InlineKeyboardButton("📊 CRF", callback_data=f"set_crf{context}"),
+             InlineKeyboardButton("⚡ Preset", callback_data=f"set_pre{context}")],
+            [InlineKeyboardButton("🎵 Audio", callback_data=f"set_aud{context}")],
+            [InlineKeyboardButton("⬅️ Back", callback_data=f"main_menu{context}")]
+        ])
+        return text, keyboard
+
+    async def set_codec_menu(self, user_id, context=""):
+        text = "🎥 **Select Video Codec:**"
+        options = ["libx264", "libx265", "libvpx-vp9"]
+        buttons = []
+        for opt in options:
+            buttons.append([InlineKeyboardButton(opt, callback_data=f"upd_codec_{opt}{context}")])
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data=f"enc_menu{context}")])
+        return text, InlineKeyboardMarkup(buttons)
+
+    async def set_res_menu(self, user_id, context=""):
+        text = "🎬 **Select Resolution:**"
+        options = ["480", "720", "1080", "1280x720", "1920x1080"]
+        buttons = []
+        for i in range(0, len(options), 2):
+            row = [InlineKeyboardButton(options[i], callback_data=f"upd_res_{options[i]}{context}")]
+            if i + 1 < len(options):
+                row.append(InlineKeyboardButton(options[i+1], callback_data=f"upd_res_{options[i+1]}{context}"))
+            buttons.append(row)
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data=f"enc_menu{context}")])
+        return text, InlineKeyboardMarkup(buttons)
+
+    async def set_crf_menu(self, user_id, context=""):
+        text = "📊 **Select CRF (Lower is better quality):**"
+        options = ["18", "20", "22", "24", "26", "28", "30"]
+        buttons = []
+        for i in range(0, len(options), 3):
+            row = [InlineKeyboardButton(o, callback_data=f"upd_crf_{o}{context}") for o in options[i:i+3]]
+            buttons.append(row)
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data=f"enc_menu{context}")])
+        return text, InlineKeyboardMarkup(buttons)
+
+    async def set_pre_menu(self, user_id, context=""):
+        text = "⚡ **Select Preset:**"
+        options = ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow"]
+        buttons = []
+        for i in range(0, len(options), 2):
+            row = [InlineKeyboardButton(o, callback_data=f"upd_pre_{o}{context}") for o in options[i:i+2]]
+            buttons.append(row)
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data=f"enc_menu{context}")])
+        return text, InlineKeyboardMarkup(buttons)
+
+    async def set_aud_menu(self, user_id, context=""):
+        text = "🎵 **Select Audio Bitrate:**"
+        options = ["32k", "48k", "64k", "96k", "128k", "192k"]
+        buttons = []
+        for i in range(0, len(options), 2):
+            row = [InlineKeyboardButton(o, callback_data=f"upd_aud_{o}{context}") for o in options[i:i+2]]
+            buttons.append(row)
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data=f"enc_menu{context}")])
+        return text, InlineKeyboardMarkup(buttons)
 
 menu_handler = MenuHandler()

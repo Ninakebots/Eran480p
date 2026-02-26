@@ -61,37 +61,23 @@ async def execute_task(task_info):
         LOGGER.warning(f"Unknown task type: {task_type}")
 
 async def handle_compression_task(update, task_type, options):
-    # Similar to incoming_compress_message_f but with options
-    # Set temporary globals if needed or pass to convert_video1
+    # Fetch user settings from DB
+    user_id = update.from_user.id if update.from_user else update.chat.id
+    from bot.helper_funcs.database import get_user_data
+    user_settings = await get_user_data(user_id)
 
+    # Override resolution if specific task type is provided
     if task_type == '480p':
-        res = "854x480"
+        user_settings['resolution'] = "854x480"
     elif task_type == '720p':
-        res = "1280x720"
+        user_settings['resolution'] = "1280x720"
     elif task_type == '1080p':
-        res = "1920x1080"
-    else:
-        res = options.get('resolution', global_resolution[0] if global_resolution else "1280x720")
-
-    # Temporarily override globals for this task
-    # This is a bit hacky but consistent with existing code
-    old_res_existed = len(global_resolution) > 0
-    old_res = global_resolution[0] if old_res_existed else "1280x720"
-
-    if old_res_existed:
-        global_resolution[0] = res
-    else:
-        global_resolution.append(res)
+        user_settings['resolution'] = "1920x1080"
+    elif 'resolution' in options:
+        user_settings['resolution'] = options['resolution']
 
     from bot.plugins.incoming_message_fn import incoming_compress_message_f
-    try:
-        await incoming_compress_message_f(update)
-    finally:
-        # Restore global
-        if old_res_existed:
-            global_resolution[0] = old_res
-        else:
-            global_resolution.clear()
+    await incoming_compress_message_f(update, user_settings=user_settings)
 
 async def handle_extract_audio_task(message, options):
     sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰᴏʀ ᴀᴜᴅɪᴏ ᴇxᴛʀᴀᴄᴛɪᴏɴ...📥", reply_to_message_id=message.id)
@@ -227,8 +213,8 @@ async def handle_trim_task(message, options):
         if not video_path: return await sent_message.edit_text("❌ Download failed.")
 
         await sent_message.edit_text(f"✂️ T𝗋𝗂𝗆𝗆𝗂𝗇𝗀 𝗏𝗂𝖽𝖾𝗈 ({start_time} - {end_time})...⚙️")
-        from bot.helper_funcs.ffmpeg import cult_small_video
-        output_path = await cult_small_video(video_path, DOWNLOAD_LOCATION, start_time, end_time, bot, sent_message)
+        from bot.helper_funcs.ffmpeg import cut_video
+        output_path = await cut_video(video_path, DOWNLOAD_LOCATION, start_time, end_time, bot, sent_message)
 
         if output_path:
             sent_video = await bot.send_video(chat_id=message.chat.id, video=output_path, reply_to_message_id=message.id)

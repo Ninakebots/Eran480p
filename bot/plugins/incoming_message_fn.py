@@ -20,7 +20,7 @@ from bot import (
 )
 from bot.config import Config
 from bot.helper_funcs.ffmpeg import (
-  convert_video1,
+  convert_video,
   media_info,
   take_screen_shot,
   get_duration,
@@ -133,7 +133,7 @@ async def incoming_start_message_f(bot, update):
             reply_to_message_id=update.id,
         )
     
-async def incoming_compress_message_f(update):
+async def incoming_compress_message_f(update, user_settings=None):
     isAuto = True
     d_start = time.time()
     c_start = time.time()
@@ -261,17 +261,23 @@ async def incoming_compress_message_f(update):
         c_start = time.time()
 
         try:
+            # Get user settings from DB if not provided
+            if user_settings is None:
+                user_id = update.from_user.id if update.from_user else update.chat.id
+                from bot.helper_funcs.database import get_user_data
+                user_settings = await get_user_data(user_id)
+
             # Compress video
-            o = await convert_video1(
+            o = await convert_video(
                 saved_file_path,  # Use saved_file_path instead of video
                 DOWNLOAD_LOCATION,
                 duration,
                 bot,
                 sent_message,
-                compress_start
+                user_settings
             )
             
-            LOGGER.info(f"convert_video1 returned: {o}")
+            LOGGER.info(f"convert_video returned: {o}")
             
         except Exception as e:
             LOGGER.error(f"Compression error: {str(e)}")
