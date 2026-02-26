@@ -1,4 +1,3 @@
-aiogram
 aiohttp
 anitopy
 Pillow
@@ -7,7 +6,6 @@ hachoir
 tgcrypto
 pyrogram==2.0.106
 motor
-https://github.com/pyrogram/pyrogram/archive/master.zip
 dnspython
 requests
 speedtest-cli

@@ -9,7 +9,7 @@ logging.basicConfig(
 logging.getLogger("pyrogram").setLevel(logging.WARNING)
 LOGGER = logging.getLogger(__name__)
 
-import os, asyncio, pyrogram, psutil, platform, time, re, json, aiohttp
+import os, asyncio, pyrogram, psutil, platform, time, re, json, aiohttp, shutil
 from bot import data, AUTH_USERS, AUTH_CHATS
 from bot.helper_funcs.database import db
 from pyrogram import filters
@@ -24,32 +24,13 @@ def checkKey(dict, key):
         return False
 
 def hbs(size):
-    try:
-        if not size or size == 0:
-            return "0 B"
-        
-        if isinstance(size, str):
-            try:
-                size = float(re.sub(r'[^\d.]', '', size))
-            except (ValueError, TypeError):
-                return "0 B"
-        
-        size = float(size)
-        if size < 0:
-            return "0 B"
-            
-        power = 1024
-        raised_to_pow = 0
-        dict_power_n = {0: "B", 1: "KB", 2: "MB", 3: "GB", 4: "TB", 5: "PB"}
-        
-        while size >= power and raised_to_pow < 5:
-            size = size / power
-            raised_to_pow += 1
-            
-        return f"{round(size, 2)} {dict_power_n[raised_to_pow]}"
-    except Exception as e:
-        LOGGER.error(f"Error in hbs function: {e}")
+    if not size:
         return "0 B"
+    for unit in ["B", "KB", "MB", "GB", "TB", "PB"]:
+        if size < 1024.0:
+            break
+        size /= 1024.0
+    return f"{size:.2f} {unit}"
 
 async def on_task_complete():
     try:
@@ -62,7 +43,19 @@ async def on_task_complete():
 
 async def add_task(task_info):
     try:
-        os.system('rm -rf /app/downloads/*')
+        # Safer cleanup of downloads directory
+        from bot import DOWNLOAD_LOCATION
+        if os.path.exists(DOWNLOAD_LOCATION):
+            for file in os.listdir(DOWNLOAD_LOCATION):
+                file_path = os.path.join(DOWNLOAD_LOCATION, file)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    LOGGER.warning(f"Failed to delete {file_path}: {e}")
+
         # We'll import the actual handler here to avoid circular imports
         from bot.helper_funcs.task_handler import execute_task
         await execute_task(task_info)
@@ -97,21 +90,21 @@ async def sysinfo(e):
         disk = psutil.disk_usage('/')
         dl_size = psutil.net_io_counters().bytes_recv
         ul_size = psutil.net_io_counters().bytes_sent
-        message = await e.reply_text(f"<u><b>Sʏꜱᴛᴇᴍ Sᴛᴀᴛꜱ 🧮</b></u>\n"
-                                     f"<blockquote><b>🎖️ CPU Freq:</b> {freq_current}\n"
-                                     f"<b>CPU Cores [ Physical:</b> {cpu_count} | <b>Total:</b> {cpu_count_logical} ]\n\n"
-                                     f"<b>💾 Total Disk :</b> {psutil._common.bytes2human(disk.total)}B\n"
-                                     f"<b>Used:</b> {psutil._common.bytes2human(disk.used)}B | <b>Free:</b> {psutil._common.bytes2human(disk.free)}B\n\n"
-                                     f"<b>🔺 Total Upload:</b> {psutil._common.bytes2human(ul_size)}B\n"
-                                     f"<b>🔻 Total Download:</b> {psutil._common.bytes2human(dl_size)}B\n\n"
-                                     f"<b>🎮 Total Ram :</b> {psutil._common.bytes2human(ram_stats.total)}B\n"
-                                     f"<b>Used:</b>{psutil._common.bytes2human(ram_stats.used)}B | <b>Free:</b> {psutil._common.bytes2human(ram_stats.available)}B\n\n"
-                                     f"<b>🖥 CPU:</b> {cpuUsage}%\n"
-                                     f"<b>🎮 RAM:</b> {int(ram_stats.percent)}%\n"
-                                     f"<b>💿 DISK:</b> {int(disk.percent)}%</blockquote>")
+
+        text = (
+            f"<u><b>Sʏꜱᴛᴇᴍ Sᴛᴀᴛꜱ 🧮</b></u>\n"
+            f"<blockquote>"
+            f"<b>🎖️ CPU Freq:</b> `{freq_current}`\n"
+            f"<b>CPU Cores:</b> `{cpu_count}` physical | `{cpu_count_logical}` logical\n\n"
+            f"<b>💾 Disk:</b> `{hbs(disk.used)}` / `{hbs(disk.total)}` ({disk.percent}%)\n"
+            f"<b>🎮 RAM:</b> `{hbs(ram_stats.used)}` / `{hbs(ram_stats.total)}` ({ram_stats.percent}%)\n\n"
+            f"<b>🔺 Uploaded:</b> `{hbs(ul_size)}` | <b>🔻 Downloaded:</b> `{hbs(dl_size)}`"
+            f"</blockquote>"
+        )
+        await e.reply_text(text)
     except Exception as e:
         LOGGER.error(f"Error in sysinfo: {e}")
-        await e.reply_text("Error getting system information")
+        await e.reply_text(f"❌ Error getting system information: `{e}`")
 
 def safe_float_convert(value, default=0.0):
     try:

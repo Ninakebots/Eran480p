@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 import speedtest
 import subprocess
@@ -29,12 +30,12 @@ async def sysinfo_handler(client, message):
 
 @app.on_message(filters.incoming & filters.command([Command.SPEEDTEST, f"{Command.SPEEDTEST}@{BOT_USERNAME}"]) & is_auth)
 async def speedtest_handler(client, message):
-    sent = await message.reply_text("🏎 Running speed test...")
+    sent = await message.reply_text("🏎 **Running speed test...**")
     try:
         st = speedtest.Speedtest(secure=True)
-        st.get_best_server()
-        st.download()
-        st.upload()
+        await asyncio.to_thread(st.get_best_server)
+        await asyncio.to_thread(st.download)
+        await asyncio.to_thread(st.upload)
         res = st.results.dict()
 
         isp = res.get('client', {}).get('isp', 'Unknown')
@@ -57,10 +58,12 @@ async def speedtest_handler(client, message):
         LOGGER.error(f"Speedtest error: {e}")
         # Fallback to simple speedtest-cli if available
         try:
-            output = subprocess.check_output(['speedtest-cli', '--simple'], stderr=subprocess.STDOUT).decode()
+            output = await asyncio.to_thread(
+                lambda: subprocess.check_output(['speedtest-cli', '--simple'], stderr=subprocess.STDOUT).decode()
+            )
             await sent.edit_text(f"🏎 **Speed Test Results (Fallback):**\n\n`{output}`")
         except Exception as err:
-            await sent.edit_text(f"❌ Speed test failed.\nError: {e}\nFallback Error: {err}")
+            await sent.edit_text(f"❌ **Speed test failed.**\n\n**Error:** `{e}`\n**Fallback Error:** `{err}`")
 
 @app.on_message(filters.incoming & filters.command([Command.CANCEL, f"{Command.CANCEL}@{BOT_USERNAME}"]) & is_auth)
 async def cancel_handler(client, message):
