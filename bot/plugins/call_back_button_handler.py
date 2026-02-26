@@ -85,21 +85,46 @@ async def button(bot, update: CallbackQuery):
             # Check if user is an admin or authorized in DB
             is_authorized = await is_auth(bot, update)
             if is_authorized:
-                status = DOWNLOAD_LOCATION + "/status.json"
-                with open(status, 'r+') as f:
-                    statusMsg = json.load(f)
-                    statusMsg['running'] = False
-                    f.seek(0)
-                    json.dump(statusMsg, f, indent=2)
-                    if 'pid' in statusMsg.keys():
+                status = os.path.join(DOWNLOAD_LOCATION, "status.json")
+                if os.path.exists(status):
+                    with open(status, 'r+') as f:
                         try:
-                            os.kill(statusMsg["pid"], signal.SIGTERM)
-                            os.kill(pid_list[0], signal.SIGTERM)
-                            del pid_list[0]
-                            os.system("rm -rf downloads/*")
+                            statusMsg = json.load(f)
+                            statusMsg['running'] = False
+                            f.seek(0)
+                            json.dump(statusMsg, f, indent=2)
+                            f.truncate()
+
+                            if 'pid' in statusMsg:
+                                try:
+                                    os.kill(statusMsg["pid"], signal.SIGTERM)
+                                except:
+                                    pass
+
+                            if pid_list:
+                                try:
+                                    os.kill(pid_list[0], signal.SIGTERM)
+                                    del pid_list[0]
+                                except:
+                                    pass
+
+                            # Safer cleanup using DOWNLOAD_LOCATION
+                            if os.path.exists(DOWNLOAD_LOCATION):
+                                for file in os.listdir(DOWNLOAD_LOCATION):
+                                    file_path = os.path.join(DOWNLOAD_LOCATION, file)
+                                    try:
+                                        if os.path.isfile(file_path) or os.path.islink(file_path):
+                                            os.unlink(file_path)
+                                        elif os.path.isdir(file_path):
+                                            shutil.rmtree(file_path)
+                                    except Exception:
+                                        pass
+
                             await bot.delete_messages(update.message.chat.id, statusMsg["message"])
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            LOGGER.error(f"Error processing status.json: {e}")
+                else:
+                    await update.answer("No active process found.", show_alert=True)
             else:
                 try:
                     await update.message.edit_text("Yᴏᴜ ᴀʀᴇ Nᴏᴛ Aʟʟᴏᴡᴇᴅ ᴛᴏ ᴅᴏ Tʜᴀᴛ 🤭")

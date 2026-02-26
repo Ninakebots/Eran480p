@@ -19,7 +19,7 @@ class Localisation:
     
     RCHD_TG_API_LIMIT = "Downloaded in {} seconds.\nDetected File Size: {}\nSorry. But, I cannot upload files greater than 1.95GB due to Telegram API limitations."
     
-    COMPRESS_SUCCESS =  "<b>𝖯𝗈𝗐𝖽𝖾𝗋𝖾𝖽 𝖡𝗒 @Team_Wine</b>"
+    COMPRESS_SUCCESS = "✨ **Vɪᴅᴇᴏ Eɴᴄᴏᴅᴇᴅ Sᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ!** ✨\n\n<blockquote><b>📥 Dᴏᴡɴʟᴏᴀᴅ Tɪᴍᴇ:</b> {}\n<b>📀 Eɴᴄᴏᴅɪɴɢ Tɪᴍᴇ:</b> {}\n<b>📤 Uᴘʟᴏᴀᴅ Tɪᴍᴇ:</b> {}</blockquote>\n\n<b>𝖯𝗈𝗐𝖽𝖾𝗋𝖾𝖽 𝖡𝗒 @Team_Wine</b>"
 
     COMPRESS_PROGRESS = "<blockquote>⏳ ETA: {}\n🚀 Pʀᴏɢʀᴇꜱꜱ: {}%</blockquote>"
 
