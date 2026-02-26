@@ -447,8 +447,8 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     cmd = [
         'ffmpeg', '-i', video_file,
         '-vf', f"subtitles='{escaped_path}'",
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
-        '-c:a', 'aac', '-y', output_file
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24',
+        '-c:a', 'copy', '-map', '0:v:0?', '-map', '0:a?', '-y', output_file
     ]
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Adding Hard Subtitles...")

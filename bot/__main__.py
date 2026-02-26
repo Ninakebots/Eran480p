@@ -64,8 +64,6 @@ if __name__ == "__main__":
     if not os.path.isdir(DOWNLOAD_LOCATION):
         os.makedirs(DOWNLOAD_LOCATION)
 
-    app.add_handler(MessageHandler(incoming_start_message_f, filters.command(["start", f"start@{BOT_USERNAME}"])))
-
     @app.on_message(filters.incoming & filters.command(["crf", f"crf@{BOT_USERNAME}"]))
     async def changecrf(app, message):
         if message.chat.id in AUTH_USERS:
@@ -158,22 +156,9 @@ if __name__ == "__main__":
     async def settings(app, message):
         await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}")
 
-
-    @app.on_message(filters.incoming & filters.command(["exec", f"exec@{BOT_USERNAME}"]))
-    async def exec_handler(app, message):
-        await exec_message_f(app, message)
-
-    @app.on_message(filters.incoming & filters.command(["eval", f"eval@{BOT_USERNAME}"]))
-    async def eval_handler(app, message):
-        await eval_message_f(app, message)
-
     @app.on_message(filters.incoming & filters.command(["stop", f"stop@{BOT_USERNAME}"]))
     async def stop_handler(app, message):
         await on_task_complete()
-
-    @app.on_message(filters.incoming & filters.command([Command.UPLOAD_LOG_FILE, f"{Command.UPLOAD_LOG_FILE}@{BOT_USERNAME}"]) & is_auth)
-    async def log_handler(app, message):
-        await upload_log_file(app, message)
 
     @app.on_message(filters.incoming & filters.command(["help", f"help@{BOT_USERNAME}"]) & is_auth)
     async def help_handler(app, message):
