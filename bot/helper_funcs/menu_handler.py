@@ -71,7 +71,7 @@ class MenuHandler:
 
     async def set_res_menu(self, user_id, context=""):
         text = "🎬 **Select Resolution:**"
-        options = ["480p", "720p", "1080p"]
+        options = ["480p", "720p", "1080p", "All"]
         buttons = []
         for i in range(0, len(options), 2):
             row = [InlineKeyboardButton(options[i], callback_data=f"upd_res_{options[i]}{context}")]

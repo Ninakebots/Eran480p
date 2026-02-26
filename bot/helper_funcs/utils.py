@@ -72,7 +72,7 @@ async def add_to_queue(message: Message, task_type: str, options: dict = None):
         'message': message,
         'task_type': task_type,
         'options': options or {},
-        'id': int(time.time())
+        'id': time.time_ns()
     }
     data.append(task_info)
     if len(data) == 1:

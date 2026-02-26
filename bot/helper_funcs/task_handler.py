@@ -75,6 +75,14 @@ async def handle_compression_task(update, task_type, options):
     elif 'resolution' in options:
         user_settings['resolution'] = options['resolution']
 
+    # Special handling for "All" resolution if generic "compress" task is called
+    if user_settings.get('resolution') == 'All' and task_type == 'compress':
+        from bot.helper_funcs.utils import add_to_queue
+        await add_to_queue(update, "480p", options)
+        await add_to_queue(update, "720p", options)
+        await add_to_queue(update, "1080p", options)
+        return
+
     from bot.plugins.incoming_message_fn import incoming_compress_message_f
     await incoming_compress_message_f(update, user_settings=user_settings)
 
