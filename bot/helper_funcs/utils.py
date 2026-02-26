@@ -154,7 +154,14 @@ async def copy_to_dump_channel(bot, message, user_id):
 async def output_handler(bot, update, output_path, download_time=None, encoding_time=None, thumb_path=None, input_path=None, sent_message=None):
     from bot.localisation import Localisation
     from bot.helper_funcs.display_progress import progress_for_pyrogram, TimeFormatter
+    from bot.helper_funcs.database import get_user_data
+    from bot.helper_funcs.gofile import upload_gofile
+    from bot import GOFILE_TOKEN
     import time
+
+    user_id = update.from_user.id if update.from_user else update.chat.id
+    user_settings = await get_user_data(user_id)
+    upload_dest = user_settings.get("upload_destination", "telegram")
 
     u_start = time.time()
     if not sent_message:
@@ -175,48 +182,83 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
         caption = Localisation.COMPRESS_SUCCESS.replace('{}', d_time, 1).replace('{}', e_time, 1)
 
         # Upload
-        ext = output_path.split('.')[-1].lower()
-        common_args = {
-            'chat_id': update.chat.id,
-            'caption': caption.replace('{}', "Calculating...", 1),
-            'reply_to_message_id': update.id,
-            'progress': progress_for_pyrogram,
-            'progress_args': (bot, Localisation.UPLOAD_START, sent_message, u_start)
-        }
-
-        if ext in ['mp4', 'mkv', 'webm']:
-            upload = await bot.send_video(
-                video=output_path,
-                thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
-                supports_streaming=True,
-                **common_args
-            )
-        elif ext in ['mp3', 'm4a', 'ogg', 'opus']:
-            upload = await bot.send_audio(
-                audio=output_path,
-                thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
-                **common_args
-            )
-        else:
-            upload = await bot.send_document(
-                document=output_path,
-                thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
-                force_document=True,
-                **common_args
-            )
-
-        u_time = TimeFormatter((time.time() - u_start) * 1000)
-
-        if upload:
-            # Update caption with actual upload time
+        upload = None
+        if upload_dest == "gofile":
             try:
-                final_caption = caption.replace('{}', u_time, 1)
-                await upload.edit_caption(caption=final_caption)
-            except Exception as e:
-                LOGGER.error(f"Error editing caption: {e}")
+                await sent_message.edit_text("📤 **Uploading to Gofile.io...**")
+                download_url = await upload_gofile(output_path, token=GOFILE_TOKEN)
+                if download_url:
+                    u_time = TimeFormatter((time.time() - u_start) * 1000)
+                    file_name = os.path.basename(output_path)
+                    file_size = hbs(os.path.getsize(output_path))
 
-            # Copy to dump channel
-            await copy_to_dump_channel(bot, upload, update.from_user.id if update.from_user else "Unknown")
+                    text = (
+                        f"✅ **File Encoded & Uploaded to Gofile!**\n\n"
+                        f"📁 **File Name:** `{file_name}`\n"
+                        f"⚖️ **Size:** `{file_size}`\n"
+                        f"🔗 **Download Link:** {download_url}\n\n"
+                        f"<blockquote>"
+                        f"<b>📥 Dᴏᴡɴʟᴏᴀᴅ Tɪᴍᴇ:</b> {d_time}\n"
+                        f"<b>📀 Eɴᴄᴏᴅɪɴɢ Tɪᴍᴇ:</b> {e_time}\n"
+                        f"<b>📤 Uᴘʟᴏᴀᴅ Tɪᴍᴇ:</b> {u_time}"
+                        f"</blockquote>"
+                    )
+                    await bot.send_message(
+                        chat_id=update.chat.id,
+                        text=text,
+                        reply_to_message_id=update.id,
+                        disable_web_page_preview=True
+                    )
+                else:
+                    raise Exception("Gofile upload failed.")
+            except Exception as e:
+                LOGGER.error(f"Gofile upload error: {e}")
+                upload_dest = "telegram" # Fallback to telegram
+                await sent_message.edit_text("⚠️ Gofile upload failed. Falling back to Telegram...")
+
+        if upload_dest == "telegram":
+            ext = output_path.split('.')[-1].lower()
+            common_args = {
+                'chat_id': update.chat.id,
+                'caption': caption.replace('{}', "Calculating...", 1),
+                'reply_to_message_id': update.id,
+                'progress': progress_for_pyrogram,
+                'progress_args': (bot, Localisation.UPLOAD_START, sent_message, u_start)
+            }
+
+            if ext in ['mp4', 'mkv', 'webm']:
+                upload = await bot.send_video(
+                    video=output_path,
+                    thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
+                    supports_streaming=True,
+                    **common_args
+                )
+            elif ext in ['mp3', 'm4a', 'ogg', 'opus']:
+                upload = await bot.send_audio(
+                    audio=output_path,
+                    thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
+                    **common_args
+                )
+            else:
+                upload = await bot.send_document(
+                    document=output_path,
+                    thumb=thumb_path if thumb_path and os.path.exists(thumb_path) else None,
+                    force_document=True,
+                    **common_args
+                )
+
+            u_time = TimeFormatter((time.time() - u_start) * 1000)
+
+            if upload:
+                # Update caption with actual upload time
+                try:
+                    final_caption = caption.replace('{}', u_time, 1)
+                    await upload.edit_caption(caption=final_caption)
+                except Exception as e:
+                    LOGGER.error(f"Error editing caption: {e}")
+
+                # Copy to dump channel
+                await copy_to_dump_channel(bot, upload, update.from_user.id if update.from_user else "Unknown")
 
         try:
             await sent_message.delete()

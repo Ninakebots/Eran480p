@@ -34,7 +34,7 @@ class MenuHandler:
     async def settings_menu(self, user_id, context=""):
         user_settings = await get_user_data(user_id)
 
-        codec = user_settings.get('codec', 'libx264')
+        codec = user_settings.get('codec', 'libsvtav1')
         crf = user_settings.get('crf', '24')
         preset = user_settings.get('preset', 'veryfast')
         audio = user_settings.get('audio_b', '128k')
