@@ -62,7 +62,7 @@ class MenuHandler:
 
     async def set_codec_menu(self, user_id, context=""):
         text = "🎥 **Select Video Codec:**"
-        options = ["libx264", "libx265", "libvpx-vp9"]
+        options = ["libx264", "libx265", "libsvtav1", "libvpx-vp9"]
         buttons = []
         for opt in options:
             buttons.append([InlineKeyboardButton(opt, callback_data=f"upd_codec_{opt}{context}")])

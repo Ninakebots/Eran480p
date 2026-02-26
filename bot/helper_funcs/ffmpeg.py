@@ -346,7 +346,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         cmd.extend(['-c:v', 'copy'])
 
     cmd.extend([
-        '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-c:a', 'aac', '-b:a', s['audio_bitrate'],
         '-c:s', 'copy', '-y', output_file
     ])
 
@@ -383,7 +383,7 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
             cmd.extend(['-c:v', 'copy'])
 
         cmd.extend([
-            '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+            '-c:a', 'aac', '-b:a', s['audio_bitrate'],
             '-c:s', 'copy', '-y', output_file
         ])
 
@@ -476,13 +476,15 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     s = get_encoding_settings(settings)
 
     # Advanced escaping for subtitles filter
-    escaped_path = subtitle_file.replace('\\', '/').replace("'", "'\\\\\\''").replace(':', '\\:')
+    # FFmpeg subtitles filter requires escaping for colons and single quotes
+    # The path itself should be escaped for the filter argument
+    escaped_path = subtitle_file.replace('\\', '/').replace(':', '\\:').replace("'", r"\'")
 
     cmd = [
         'ffmpeg', '-i', video_file,
-        '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}',format=yuv420p",
+        '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format=yuv420p",
         '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
-        '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-c:a', 'aac', '-b:a', s['audio_bitrate'],
         '-map', '0:v:0?', '-map', '0:a?', '-y', output_file
     ]
 
