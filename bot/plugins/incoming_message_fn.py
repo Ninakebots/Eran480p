@@ -177,8 +177,10 @@ async def incoming_compress_message_f(update):
         )
         
         saved_file_path = video
-        LOGGER.info(saved_file_path)  
-        LOGGER.info(video)
+        if video:
+            LOGGER.info(f"Downloaded video path: {video}")
+        else:
+            LOGGER.info("Download failed or was cancelled, video path is None")
         
         if video is None:
             try:
@@ -218,7 +220,8 @@ async def incoming_compress_message_f(update):
             
         screenshot_time = duration / 2 if duration > 0 else 60
         
-        custom_thumb = os.path.join("thumbnails", f"{update.from_user.id}.jpg")
+        user_id = update.from_user.id if update.from_user else update.chat.id
+        custom_thumb = os.path.join("thumbnails", f"{user_id}.jpg")
         if os.path.exists(custom_thumb):
             thumb_image_path = custom_thumb
             is_custom_thumb = True
@@ -247,7 +250,10 @@ async def incoming_compress_message_f(update):
         )
         
         compressed_time = TimeFormatter((time.time() - c_start)*1000)
-        LOGGER.info(o)
+        if o:
+            LOGGER.info(f"Compression successful: {o}")
+        else:
+            LOGGER.info("Compression failed, output path is None")
         
         if o == 'stopped':
             return
@@ -294,11 +300,14 @@ async def incoming_compress_message_f(update):
             await upload_start.delete()
             await bot.send_message(chat_id, f"<blockquote>**𝙴𝙽𝙲𝙾𝙳𝙴𝙳 𝚄𝚙𝚕𝚘𝚊𝚍 𝙳𝚘𝚗𝚎.\n...𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠...🍃**</blockquote>")
             
-            LOGGER.info(upload.caption)
-            try:
-                await upload.edit_caption(caption=upload.caption.replace('{}', uploaded_time))
-            except:
-                pass
+            if upload and upload.caption:
+                LOGGER.info(f"Final caption: {upload.caption}")
+                try:
+                    await upload.edit_caption(caption=upload.caption.replace('{}', uploaded_time))
+                except Exception as e:
+                    LOGGER.error(f"Failed to edit caption: {e}")
+            else:
+                LOGGER.warning("Upload successful but message or caption is None")
 
             # Cleanup
             if not is_custom_thumb and thumb_image_path and os.path.exists(thumb_image_path):
@@ -324,9 +333,10 @@ async def incoming_compress_message_f(update):
             pass
     
 async def incoming_cancel_message_f(bot, update):
-    if update.from_user.id not in AUTH_USERS:      
+    user_id = update.from_user.id if update.from_user else None
+    if user_id not in AUTH_USERS:
         try:
-            await update.message.delete()
+            await update.delete()
         except:
             pass
         return

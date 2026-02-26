@@ -222,10 +222,12 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
                 except Exception:
                     pass
 
-        await process.wait()
+        stdout, stderr = await process.communicate()
         if process.returncode == 0:
             success = True
         else:
+            if stderr:
+                LOGGER.error(f"FFmpeg failed with return code {process.returncode}. Error: {stderr.decode()}")
             success = False
 
     except Exception as e:
@@ -345,29 +347,37 @@ async def extract_audio(video_file, output_directory):
     if not os.path.exists(video_file): return None
     output_file = os.path.join(output_directory, f"audio_{int(time.time())}.mp3")
     cmd = ['ffmpeg', '-i', video_file, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', '-y', output_file]
-    process = await asyncio.create_subprocess_exec(*cmd)
-    await process.wait()
+    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        LOGGER.error(f"Extract audio failed: {stderr.decode()}")
     return output_file if os.path.exists(output_file) else None
 
 async def add_audio(video_file, audio_file, output_directory):
     output_file = os.path.join(output_directory, f"muxed_{int(time.time())}.mp4")
     cmd = ['ffmpeg', '-i', video_file, '-i', audio_file, '-c:v', 'copy', '-c:a', 'aac', '-map', '0:v:0', '-map', '1:a:0', '-shortest', '-y', output_file]
-    process = await asyncio.create_subprocess_exec(*cmd)
-    await process.wait()
+    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        LOGGER.error(f"Add audio failed: {stderr.decode()}")
     return output_file if os.path.exists(output_file) else None
 
 async def remove_audio(video_file, output_directory):
     output_file = os.path.join(output_directory, f"no_audio_{int(time.time())}.mp4")
     cmd = ['ffmpeg', '-i', video_file, '-an', '-vcodec', 'copy', '-y', output_file]
-    process = await asyncio.create_subprocess_exec(*cmd)
-    await process.wait()
+    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        LOGGER.error(f"Remove audio failed: {stderr.decode()}")
     return output_file if os.path.exists(output_file) else None
 
 async def add_soft_subtitles(video_file, subtitle_file, output_directory):
     output_file = os.path.join(output_directory, f"soft_sub_{int(time.time())}.mkv")
     cmd = ['ffmpeg', '-i', video_file, '-i', subtitle_file, '-c', 'copy', '-map', '0', '-map', '1', '-y', output_file]
-    process = await asyncio.create_subprocess_exec(*cmd)
-    await process.wait()
+    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        LOGGER.error(f"Add soft subtitles failed: {stderr.decode()}")
     return output_file if os.path.exists(output_file) else None
 
 async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, message):
@@ -393,8 +403,10 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
 async def remove_subtitles(video_file, output_directory):
     output_file = os.path.join(output_directory, f"no_sub_{int(time.time())}.mp4")
     cmd = ['ffmpeg', '-i', video_file, '-sn', '-c', 'copy', '-y', output_file]
-    process = await asyncio.create_subprocess_exec(*cmd)
-    await process.wait()
+    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        LOGGER.error(f"Remove subtitles failed: {stderr.decode()}")
     return output_file if os.path.exists(output_file) else None
 
 # --- Thumbnail & Screenshot ---
