@@ -35,7 +35,7 @@ async def remaudio_handler(client, message):
     await message.reply_text("⏰ Added remove-audio task to queue...", quote=True)
     await add_to_queue(reply, "remove_audio")
 
-@app.on_message(filters.incoming & filters.command([Command.SUB, f"{Command.SUB}@{BOT_USERNAME}"]) & is_auth)
+@app.on_message(filters.incoming & filters.command([Command.SUB, f"{Command.SUB}@{BOT_USERNAME}", Command.SOFTSUB, f"{Command.SOFTSUB}@{BOT_USERNAME}"]) & is_auth)
 async def sub_handler(client, message):
     reply = message.reply_to_message
     if not reply or not reply.document:
@@ -51,7 +51,7 @@ async def sub_handler(client, message):
     await message.reply_text("⏰ Added soft-sub task to queue...", quote=True)
     await add_to_queue(video_message, "add_soft_sub", options={'sub_message': reply})
 
-@app.on_message(filters.incoming & filters.command([Command.HSUB, f"{Command.HSUB}@{BOT_USERNAME}"]) & is_auth)
+@app.on_message(filters.incoming & filters.command([Command.HSUB, f"{Command.HSUB}@{BOT_USERNAME}", Command.HARDSUB, f"{Command.HARDSUB}@{BOT_USERNAME}"]) & is_auth)
 async def hsub_handler(client, message):
     reply = message.reply_to_message
     if not reply or not reply.document:

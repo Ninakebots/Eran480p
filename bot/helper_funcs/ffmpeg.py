@@ -378,9 +378,10 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         cmd = [
             'ffmpeg', '-hide_banner', '-loglevel', 'warning',
             '-i', video_file,
-            '-map', '0:a?', '-map', '0:s?', '-c:v', codec[0],
-            '-crf', crf[0], '-preset', preset[0], '-b:v', '150k',
-            '-c:a', 'libopus', '-b:a', audio_b[0], '-pix_fmt', 'yuv420p', '-s', resolution[0],
+            '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',
+            '-c:v', codec[0], '-crf', crf[0], '-preset', preset[0],
+            '-c:a', 'libopus', '-b:a', audio_b[0], '-pix_fmt', 'yuv420p',
+            '-vf', f"scale={resolution[0].replace('x', ':')}:force_original_aspect_ratio=decrease",
             '-y', final_output
         ]
 
@@ -486,6 +487,7 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
             'ffmpeg', '-hide_banner', '-loglevel', 'warning',
             '-i', video_file,
             '-vf', f"subtitles='{escaped_sub_path}'",
+            '-map', '0:v:0', '-map', '0:a?', '-map', '0:s?',
             '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '22',
             '-c:a', 'copy',
             '-y', output_filename

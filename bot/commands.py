@@ -17,6 +17,8 @@ class Command:
     REMAUDIO = "remaudio"
     SUB = "sub"
     HSUB = "hsub"
+    SOFTSUB = "softsub"
+    HARDSUB = "hardsub"
     RSUB = "rsub"
     TRIM = "trim"
     MEDIAINFO = "mediainfo"
