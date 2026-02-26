@@ -15,7 +15,6 @@ TG_BOT_TOKEN = Config.TG_BOT_TOKEN
 APP_ID = Config.APP_ID
 API_HASH = Config.API_HASH
 
-LOG_CHANNEL = Config.LOG_CHANNEL
 DUMP_CHANNEL = Config.DUMP_CHANNEL
 DOWNLOAD_LOCATION = Config.DOWNLOAD_LOCATION
 FREE_USER_MAX_FILE_SIZE = Config.FREE_USER_MAX_FILE_SIZE
@@ -35,6 +34,7 @@ preset = []
 codec = []
 pid_list = []
 merge_sessions = {}
+subtitle_sessions = {}
 app = Client(
         SESSION_NAME,
         bot_token=TG_BOT_TOKEN,

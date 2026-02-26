@@ -80,6 +80,17 @@ async def add_to_queue(message: Message, task_type: str, options: dict = None):
         await add_task(task_info)
     return task_info['id']
 
+async def remove_from_queue(message_id: int):
+    """Remove a pending task from the queue."""
+    for i, task in enumerate(data):
+        if task.get('message') and task.get('message').id == message_id:
+            if i == 0:
+                # Active task, don't remove (it's already processing)
+                return False
+            data.pop(i)
+            return True
+    return False
+
 async def sysinfo(e):
     try:
         cpuUsage = psutil.cpu_percent(interval=0.5)

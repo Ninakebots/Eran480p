@@ -1,9 +1,8 @@
 from bot.helper_funcs.utils import on_task_complete, add_task, is_auth
 from bot.helper_funcs.database import db
 from bot.localisation import Localisation
-from bot import AUTH_USERS, DOWNLOAD_LOCATION, LOG_CHANNEL, data, pid_list
+from bot import AUTH_USERS, DOWNLOAD_LOCATION, data, pid_list, subtitle_sessions
 from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-import datetime
 import logging
 import os, signal
 import json
@@ -101,14 +100,6 @@ async def button(bot, update: CallbackQuery):
                             await bot.delete_messages(update.message.chat.id, statusMsg["message"])
                         except Exception:
                             pass
-                chat_id = LOG_CHANNEL
-                utc_now = datetime.datetime.utcnow()
-                ist_now = utc_now + datetime.timedelta(hours=5, minutes=30)
-                ist = ist_now.strftime("%d/%m/%Y, %H:%M:%S")
-                bst_now = utc_now + datetime.timedelta(hours=6)
-                bst = bst_now.strftime("%d/%m/%Y, %H:%M:%S")
-                now = f"{ist} (GMT+05:30)\n{bst} (GMT+06:00)"
-                await bot.send_message(chat_id, "**𝙻𝚊𝚜𝚝 𝙿𝚛𝚘𝚌𝚎𝚜𝚜 𝙲𝚊𝚗𝚌𝚎𝚕𝚕𝚎𝚍.\n.....𝙱𝚘𝚝 𝚒𝚜 𝙵𝚛𝚎𝚎 𝙽𝚘𝚠.....🥀**")
             else:
                 try:
                     await update.message.edit_text("Yᴏᴜ ᴀʀᴇ Nᴏᴛ Aʟʟᴏᴡᴇᴅ ᴛᴏ ᴅᴏ Tʜᴀᴛ 🤭")
@@ -119,6 +110,23 @@ async def button(bot, update: CallbackQuery):
                 await update.message.edit_text("Oᴋᴀʏ! Fɪɴᴇ ☠️")
             except:
                 pass
+
+    if cb_data.startswith("sub_"):
+        if user_id in subtitle_sessions:
+            sub_type = cb_data.split("_")[1]
+            task_type = f"add_{sub_type}_sub"
+            video_message = subtitle_sessions[user_id]['video']
+            sub_message = subtitle_sessions[user_id]['sub']
+
+            await update.message.edit_text(f"⏰ Added **{sub_type} sub** task to queue...")
+            from bot.helper_funcs.utils import add_to_queue
+            await add_to_queue(video_message, task_type, options={'sub_message': sub_message})
+
+            # Clear session
+            del subtitle_sessions[user_id]
+        else:
+            await update.answer("❌ Session expired or not found. Please start over with /sub.", show_alert=True)
+            await update.message.delete()
 
 async def AdminCheck(bot, chat_id, user_id):
     try:
