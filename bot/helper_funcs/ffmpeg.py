@@ -261,7 +261,7 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
 
 # --- Core Processing Functions ---
 
-async def convert_video(video_file, output_directory, total_time, bot, message, chan_msg=None):
+async def convert_video(video_file, output_directory, total_time, bot, message, settings=None):
     """Main compression function."""
     if not os.path.exists(video_file):
         return None
@@ -275,12 +275,19 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     base_name = os.path.splitext(os.path.basename(video_file))[0]
     output_file = os.path.join(output_directory, f"{base_name}.mkv")
 
-    # Get settings from globals
-    v_codec = codec[0] if codec else "libx264"
-    v_crf = crf[0] if crf else "24"
-    v_preset = preset[0] if preset else "veryfast"
-    v_res = resolution[0] if resolution else "1280x720"
-    a_bitrate = audio_b[0] if audio_b else "128k"
+    # Get settings from provided settings or globals
+    if settings:
+        v_codec = settings.get('codec', codec[0] if codec else "libx264")
+        v_crf = settings.get('crf', crf[0] if crf else "24")
+        v_preset = settings.get('preset', preset[0] if preset else "veryfast")
+        v_res = settings.get('resolution', resolution[0] if resolution else "1280x720")
+        a_bitrate = settings.get('audio_b', audio_b[0] if audio_b else "128k")
+    else:
+        v_codec = codec[0] if codec else "libx264"
+        v_crf = crf[0] if crf else "24"
+        v_preset = preset[0] if preset else "veryfast"
+        v_res = resolution[0] if resolution else "1280x720"
+        a_bitrate = audio_b[0] if audio_b else "128k"
 
     # Resolve resolution string to width:height
     if 'x' in v_res:
@@ -309,9 +316,6 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         return output_file
     return None
 
-# Alias for compatibility
-convert_video1 = convert_video
-
 async def cut_video(video_file, output_directory, start_time, end_time, bot, message):
     """Trim video."""
     if not os.path.exists(video_file):
@@ -335,9 +339,6 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
         LOGGER.error(f"Trim video failed (code {process.returncode}): {stderr.decode()}")
 
     return output_file if os.path.exists(output_file) else None
-
-# Alias for compatibility
-cult_small_video = cut_video
 
 async def merge_videos(video_list, output_path, bot, message, total_duration):
     """Merge multiple videos using concat demuxer."""

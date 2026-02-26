@@ -97,25 +97,3 @@ async def cancel_handler(client, message):
         from bot.plugins.incoming_message_fn import incoming_cancel_message_f
         await incoming_cancel_message_f(client, message)
 
-@app.on_message(filters.incoming & filters.command([Command.SAVETHUMBNAIL, f"{Command.SAVETHUMBNAIL}@{BOT_USERNAME}"]) & is_auth)
-async def save_thumbnail_handler(client, message):
-    reply = message.reply_to_message
-    if not reply or not reply.photo:
-        return await message.reply_text("❌ Reply to a photo to save it as your custom thumbnail.")
-
-    thumb_dir = "thumbnails"
-    if not os.path.isdir(thumb_dir):
-        os.makedirs(thumb_dir)
-
-    thumb_path = os.path.join(thumb_dir, f"{message.from_user.id}.jpg")
-    await client.download_media(message=reply.photo, file_name=thumb_path)
-    await message.reply_text(Localisation.SAVED_CUSTOM_THUMB_NAIL)
-
-@app.on_message(filters.incoming & filters.command([Command.DELETETHUMBNAIL, f"{Command.DELETETHUMBNAIL}@{BOT_USERNAME}"]) & is_auth)
-async def delete_thumbnail_handler(client, message):
-    thumb_path = os.path.join("thumbnails", f"{message.from_user.id}.jpg")
-    if os.path.exists(thumb_path):
-        os.remove(thumb_path)
-        await message.reply_text(Localisation.DEL_ETED_CUSTOM_THUMB_NAIL)
-    else:
-        await message.reply_text(Localisation.NO_CUSTOM_THUMB_NAIL_FOUND)
