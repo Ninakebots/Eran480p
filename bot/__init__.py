@@ -25,6 +25,7 @@ BOT_START_TIME = time.time()
 LOG_FILE_ZZGEVC = "Log.txt"
 BOT_USERNAME = Config.BOT_USERNAME 
 UPDATES_CHANNEL = Config.UPDATES_CHANNEL
+GOFILE_TOKEN = Config.GOFILE_TOKEN
 data = []
 crf = []
 resolution = []

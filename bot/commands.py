@@ -22,3 +22,4 @@ class Command:
     LIST = "list"
     SPEEDTEST = "speedtest"
     SYSINFO = "sysinfo"
+    GOFILE = "gofile"

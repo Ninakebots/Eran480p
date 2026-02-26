@@ -273,6 +273,39 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
 
 # --- Core Processing Functions ---
 
+def get_encoding_settings(settings=None):
+    """Get consistent encoding settings from provided settings or globals."""
+    if settings:
+        v_codec = settings.get('codec', codec[0] if codec else "libx264")
+        v_crf = settings.get('crf', crf[0] if crf else "24")
+        v_preset = settings.get('preset', preset[0] if preset else "veryfast")
+        v_res = settings.get('resolution', resolution[0] if resolution else "1280x720")
+        a_bitrate = settings.get('audio_b', audio_b[0] if audio_b else "128k")
+    else:
+        v_codec = codec[0] if codec else "libx264"
+        v_crf = crf[0] if crf else "24"
+        v_preset = preset[0] if preset else "veryfast"
+        v_res = resolution[0] if resolution else "1280x720"
+        a_bitrate = audio_b[0] if audio_b else "128k"
+
+    # Normalize resolution
+    v_res = str(v_res).replace('p', '')
+    if 'x' in v_res:
+        res_w, res_h = v_res.split('x')
+    elif ':' in v_res:
+        res_w, res_h = v_res.split(':')
+    else:
+        res_w, res_h = "-2", v_res
+
+    return {
+        'codec': v_codec,
+        'crf': str(v_crf),
+        'preset': v_preset,
+        'res_w': res_w,
+        'res_h': res_h,
+        'audio_bitrate': a_bitrate
+    }
+
 async def convert_video(video_file, output_directory, total_time, bot, message, settings=None):
     """Main compression function."""
     if not os.path.exists(video_file):
@@ -287,65 +320,33 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     base_name = os.path.splitext(os.path.basename(video_file))[0]
     output_file = os.path.join(output_directory, f"[Encoded] {base_name}.mkv")
 
-    # Get settings from provided settings or globals
-    if settings:
-        v_codec = settings.get('codec', codec[0] if codec else "libx264")
-        v_crf = settings.get('crf', crf[0] if crf else "24")
-        v_preset = settings.get('preset', preset[0] if preset else "veryfast")
-        v_res = settings.get('resolution', resolution[0] if resolution else "1280x720")
-        a_bitrate = settings.get('audio_b', audio_b[0] if audio_b else "128k")
-    else:
-        v_codec = codec[0] if codec else "libx264"
-        v_crf = crf[0] if crf else "24"
-        v_preset = preset[0] if preset else "veryfast"
-        v_res = resolution[0] if resolution else "1280x720"
-        a_bitrate = audio_b[0] if audio_b else "128k"
-
-    # Resolve resolution string to width:height
-    v_res = str(v_res).replace('p', '')
-    if 'x' in v_res:
-        res_w, res_h = v_res.split('x')
-    elif ':' in v_res:
-        res_w, res_h = v_res.split(':')
-    else:
-        # Assume it's height and keep aspect ratio
-        res_w, res_h = "-2", v_res
-
-    # Check if video has a video stream
+    s = get_encoding_settings(settings)
     has_video = validate_video_file(video_file)
 
-    # FFmpeg command
     cmd = [
         'ffmpeg', '-hide_banner', '-loglevel', 'warning',
         '-i', video_file,
-        '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',  # Explicit stream mapping
+        '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',
     ]
 
     if has_video:
         cmd.extend([
-            '-c:v', v_codec, '-crf', str(v_crf), '-preset', v_preset,
-            '-vf', f"scale={res_w}:{res_h}:force_original_aspect_ratio=decrease,format=yuv420p",
+            '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
+            '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
         ])
     else:
-        # If no video stream, just copy everything else or fail?
-        # For a "video compressor", we might want to just copy if it's audio only
-        # but let's at least not use the scale filter.
         cmd.extend(['-c:v', 'copy'])
 
     cmd.extend([
-        '-c:a', 'libopus', '-b:a', a_bitrate,
-        '-c:s', 'copy',
-        '-y', output_file
+        '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-c:s', 'copy', '-y', output_file
     ])
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Compressing Video...")
+    return output_file if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000 else None
 
-    if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000:
-        return output_file
-    return None
-
-async def cut_video(video_file, output_directory, start_time, end_time, bot, message):
-    """Trim video."""
+async def cut_video(video_file, output_directory, start_time, end_time, bot, message, settings=None):
+    """Trim video with optional re-encoding using same settings."""
     if not os.path.exists(video_file):
         return None
 
@@ -354,19 +355,42 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
 
     start_s = safe_float_convert(start_time)
     end_s = safe_float_convert(end_time)
-    duration = end_s - start_s
+    duration = max(end_s - start_s, 0)
 
-    cmd = [
-        'ffmpeg', '-ss', str(start_s), '-i', video_file, '-t', str(duration),
-        '-c', 'copy', '-map', '0', '-y', output_file
-    ]
+    if settings:
+        s = get_encoding_settings(settings)
+        has_video = validate_video_file(video_file)
 
-    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        LOGGER.error(f"Trim video failed (code {process.returncode}): {stderr.decode()}")
+        cmd = [
+            'ffmpeg', '-ss', str(start_s), '-i', video_file, '-t', str(duration),
+            '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',
+        ]
 
-    return output_file if os.path.exists(output_file) else None
+        if has_video:
+            cmd.extend([
+                '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
+                '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
+            ])
+        else:
+            cmd.extend(['-c:v', 'copy'])
+
+        cmd.extend([
+            '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+            '-c:s', 'copy', '-y', output_file
+        ])
+
+        success = await run_ffmpeg_with_progress(cmd, duration, bot, message, f"Trimming & Compressing...")
+    else:
+        # Fast trim without re-encoding
+        cmd = [
+            'ffmpeg', '-ss', str(start_s), '-i', video_file, '-t', str(duration),
+            '-c', 'copy', '-map', '0', '-y', output_file
+        ]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        success = process.returncode == 0
+
+    return output_file if success and os.path.exists(output_file) else None
 
 async def merge_videos(video_list, output_path, bot, message, total_duration):
     """Merge multiple videos using concat demuxer."""
@@ -435,21 +459,23 @@ async def add_soft_subtitles(video_file, subtitle_file, output_directory):
         LOGGER.error(f"Add soft subtitles failed: {stderr.decode()}")
     return output_file if os.path.exists(output_file) else None
 
-async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, message):
+async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, message, settings=None):
     if not os.path.exists(video_file) or not os.path.exists(subtitle_file): return None
 
     total_duration = get_duration(video_file)
     output_file = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mkv")
 
+    s = get_encoding_settings(settings)
+
     # Advanced escaping for subtitles filter
-    # FFmpeg subtitles filter needs special escaping for paths
     escaped_path = subtitle_file.replace('\\', '/').replace("'", "'\\\\\\''").replace(':', '\\:')
 
     cmd = [
         'ffmpeg', '-i', video_file,
-        '-vf', f"subtitles='{escaped_path}'",
-        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '24',
-        '-c:a', 'copy', '-map', '0:v:0?', '-map', '0:a?', '-y', output_file
+        '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}',format=yuv420p",
+        '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
+        '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-map', '0:v:0?', '-map', '0:a?', '-y', output_file
     ]
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Adding Hard Subtitles...")
