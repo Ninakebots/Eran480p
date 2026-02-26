@@ -21,6 +21,7 @@ from bot.plugins.utility_handlers import *
 from bot.plugins.auth_handlers import *
 from bot.plugins.user_settings import *
 from bot.plugins.gofile_handlers import *
+from bot.plugins.upload_settings import *
 from bot.plugins.call_back_button_handler import button as admin_button_handler
 from bot.commands import Command
 
@@ -29,7 +30,7 @@ logging.getLogger("pymongo").setLevel(logging.WARNING)
 logging.getLogger("motor").setLevel(logging.WARNING)
 
 crf.append("28")
-codec.append("libx264")
+codec.append("libsvtav1")
 resolution.append("1280x720")
 preset.append("veryfast")
 audio_b.append("48k")

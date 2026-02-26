@@ -276,13 +276,13 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
 def get_encoding_settings(settings=None):
     """Get consistent encoding settings from provided settings or globals."""
     if settings:
-        v_codec = settings.get('codec', codec[0] if codec else "libx264")
+        v_codec = settings.get('codec', codec[0] if codec else "libsvtav1")
         v_crf = settings.get('crf', crf[0] if crf else "24")
         v_preset = settings.get('preset', preset[0] if preset else "veryfast")
         v_res = settings.get('resolution', resolution[0] if resolution else "1280x720")
         a_bitrate = settings.get('audio_b', audio_b[0] if audio_b else "128k")
     else:
-        v_codec = codec[0] if codec else "libx264"
+        v_codec = codec[0] if codec else "libsvtav1"
         v_crf = crf[0] if crf else "24"
         v_preset = preset[0] if preset else "veryfast"
         v_res = resolution[0] if resolution else "1280x720"
@@ -340,7 +340,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     if has_video:
         cmd.extend([
             '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
-            '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
+            '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p10le",
         ])
     else:
         cmd.extend(['-c:v', 'copy'])
@@ -377,7 +377,7 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
         if has_video:
             cmd.extend([
                 '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
-                '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
+                '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p10le",
             ])
         else:
             cmd.extend(['-c:v', 'copy'])
@@ -482,7 +482,7 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
 
     cmd = [
         'ffmpeg', '-i', video_file,
-        '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format=yuv420p",
+        '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format=yuv420p10le",
         '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
         '-c:a', 'aac', '-b:a', s['audio_bitrate'],
         '-map', '0:v:0?', '-map', '0:a?', '-y', output_file

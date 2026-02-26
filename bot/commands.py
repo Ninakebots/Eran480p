@@ -23,3 +23,4 @@ class Command:
     SPEEDTEST = "speedtest"
     SYSINFO = "sysinfo"
     GOFILE = "gofile"
+    SETUPLOAD = "setupload"
