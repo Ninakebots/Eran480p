@@ -135,19 +135,22 @@ async def copy_to_dump_channel(bot, message, user_id):
         return
     try:
         # Handle conversion of DUMP_CHANNEL to int if it's a numeric string
-        try:
-            dump_chat = int(str(DUMP_CHANNEL).strip())
-        except (ValueError, TypeError):
-            dump_chat = DUMP_CHANNEL
+        # Pyrogram requires channel IDs to be integers starting with -100
+        dump_chat = DUMP_CHANNEL
+        if isinstance(dump_chat, str):
+            if dump_chat.startswith("-100") or dump_chat.isdigit() or (dump_chat.startswith("-") and dump_chat[1:].isdigit()):
+                try:
+                    dump_chat = int(dump_chat)
+                except ValueError:
+                    pass
 
         caption = f"**User ID:** `{user_id}`\n\n{message.caption or ''}"
 
-        if message.video:
-            await bot.send_video(chat_id=dump_chat, video=message.video.file_id, caption=caption)
-        elif message.audio:
-            await bot.send_audio(chat_id=dump_chat, audio=message.audio.file_id, caption=caption)
-        elif message.document:
-            await bot.send_document(chat_id=dump_chat, document=message.document.file_id, caption=caption)
+        # Using copy is more robust as it handles all media types and metadata
+        await message.copy(
+            chat_id=dump_chat,
+            caption=caption
+        )
     except Exception as e:
         LOGGER.error(f"Error copying to dump channel: {e}")
 
@@ -262,7 +265,8 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
                 await copy_to_dump_channel(bot, upload, update.from_user.id if update.from_user else "Unknown")
 
         try:
-            await sent_message.delete()
+            if sent_message:
+                await sent_message.delete()
         except:
             pass
 

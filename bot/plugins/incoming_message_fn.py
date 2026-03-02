@@ -31,6 +31,7 @@ from bot.helper_funcs.display_progress import (
   TimeFormatter,
   humanbytes
 )
+from bot.helper_funcs.utils import safe_float_convert, safe_int_convert
 
 from pyrogram import Client, filters
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
@@ -42,30 +43,6 @@ CURRENT_PROCESSES = {}
 CHAT_FLOOD = {}
 broadcast_ids = {}
 bot = app        
-
-def safe_float_convert(value, default=0.0):
-    try:
-        if isinstance(value, (int, float)):
-            return float(value)
-        elif isinstance(value, str):
-            cleaned = re.sub(r'[^\d.]', '', str(value))
-            return float(cleaned) if cleaned else default
-        return default
-    except (ValueError, TypeError):
-        return default
-
-def safe_int_convert(value, default=0):
-    try:
-        if isinstance(value, int):
-            return value
-        elif isinstance(value, float):
-            return int(value)
-        elif isinstance(value, str):
-            cleaned = re.sub(r'[^\d]', '', str(value))
-            return int(cleaned) if cleaned else default
-        return default
-    except (ValueError, TypeError):
-        return default
 
 async def get_video_duration_and_bitrate(file_path):
     try:
@@ -152,8 +129,6 @@ async def incoming_compress_message_f(update, user_settings=None):
         reply_to_message_id=update.id
     )
     
-    download_start = None
-    
     try:
         d_start = time.time()
         os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
@@ -180,7 +155,10 @@ async def incoming_compress_message_f(update, user_settings=None):
             )
         except Exception as de:
             LOGGER.error(f"bot.download_media failed: {de}")
-            await sent_message.edit_text(text=f"⚠️ Dᴏᴡɴʟᴏᴀᴅ Eʀʀᴏʀ: {str(de)[:100]}")
+            try:
+                await sent_message.edit_text(text=f"⚠️ Dᴏᴡɴʟᴏᴀᴅ Eʀʀᴏʀ: {str(de)[:100]}")
+            except:
+                pass
             return
         
         saved_file_path = video
@@ -190,7 +168,6 @@ async def incoming_compress_message_f(update, user_settings=None):
             LOGGER.error("Download failed or was cancelled, video path is None")
             try:
                 await sent_message.edit_text(text="Dᴏᴡɴʟᴏᴀᴅ Fᴀɪʟᴇᴅ 🛑")
-                if download_start: await download_start.delete()
             except:
                 pass
             return
@@ -199,7 +176,6 @@ async def incoming_compress_message_f(update, user_settings=None):
         LOGGER.error(f"General Download error: {str(e)}")
         try:
             await sent_message.edit_text(text=f"Download error: {str(e)[:100]}")
-            if download_start: await download_start.delete()
         except:
             pass
         return
@@ -220,7 +196,6 @@ async def incoming_compress_message_f(update, user_settings=None):
             LOGGER.error(f"Invalid video duration: {duration}")
             try:
                 await sent_message.edit_text(text="⚠️ Gᴇᴛᴛɪɴɢ Vɪᴅᴇᴏ Mᴇᴛᴀ Dᴀᴛᴀ Fᴀɪʟᴇᴅ ⚠️")
-                if download_start: await download_start.delete()
             except:
                 pass                    
             return
@@ -249,15 +224,11 @@ async def incoming_compress_message_f(update, user_settings=None):
                 thumb_image_path = None
                 is_custom_thumb = False
         
-        # Clean up download start message
+        # Start compression
         try:
-            if download_start: await download_start.delete()
+            await sent_message.edit_text(text=Localisation.COMPRESS_START)
         except:
             pass
-            
-        # Start compression
-        compress_start = None
-        await sent_message.edit_text(text=Localisation.COMPRESS_START)
         
         c_start = time.time()
 
@@ -287,11 +258,6 @@ async def incoming_compress_message_f(update, user_settings=None):
                 await sent_message.edit_text(text=f"⚠️ Compression error: {str(e)[:100]} ⚠️")
             except:
                 pass
-            finally:
-                try:
-                    if compress_start: await compress_start.delete()
-                except:
-                    pass
             return
         
         compressed_time = TimeFormatter((time.time() - c_start)*1000)
@@ -323,22 +289,12 @@ async def incoming_compress_message_f(update, user_settings=None):
                 await sent_message.edit_text(text="⚠️ Cᴏᴍᴘʀᴇꜱꜱɪᴏɴ Fᴀɪʟᴇᴅ ⚠️")
             except:
                 pass
-            finally:
-                try:
-                    if compress_start: await compress_start.delete()
-                except:
-                    pass
     else:
         LOGGER.error(f"Downloaded file doesn't exist: {saved_file_path}")
         try:
             await sent_message.edit_text(text="⚠️ Fᴀɪʟᴇᴅ Dᴏᴡɴʟᴏᴀᴅᴇᴅ Pᴀᴛʜ ɴᴏᴛ Exɪꜱᴛ ⚠️")
         except:
             pass
-        finally:
-            try:
-                if download_start: await download_start.delete()
-            except:
-                pass
     
     # Clean up status file
     try:

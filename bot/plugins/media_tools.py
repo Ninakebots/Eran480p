@@ -80,7 +80,7 @@ async def mediainfo_handler(client, message):
     await message.reply_text("⏰ Fetching media info...", quote=True)
     await add_to_queue(reply, "mediainfo")
 
-@app.on_message(filters.incoming & filters.command([Command.MERGE, f"{Command.MERGE}@{BOT_USERNAME}"]) & is_auth)
+@app.on_message(filters.incoming & filters.command([Command.MERGE, Command.MARGE, f"{Command.MERGE}@{BOT_USERNAME}", f"{Command.MARGE}@{BOT_USERNAME}"]) & is_auth)
 async def merge_handler(client, message):
     if not message.from_user:
         return
@@ -89,15 +89,15 @@ async def merge_handler(client, message):
 
     if user_id not in merge_sessions:
         merge_sessions[user_id] = []
-        if reply and (reply.video or (reply.document and reply.document.mime_type and reply.document.mime_type.startswith("video/"))):
+        if reply and (reply.video or reply.audio or (reply.document and reply.document.mime_type and (reply.document.mime_type.startswith("video/") or reply.document.mime_type.startswith("audio/")))):
             merge_sessions[user_id].append(reply)
-            return await message.reply_text("🆕 Merge session started with replied video.\nNow send more videos or use /done.")
-        await message.reply_text("🆕 Merge session started.\nNow send all the videos you want to merge one by one, then send /done.")
+            return await message.reply_text("🆕 Merge session started with replied file.\nNow send more files or use /done.")
+        await message.reply_text("🆕 Merge session started.\nNow send all the files you want to merge one by one, then send /done.")
     else:
-        if reply and (reply.video or (reply.document and reply.document.mime_type and reply.document.mime_type.startswith("video/"))):
+        if reply and (reply.video or reply.audio or (reply.document and reply.document.mime_type and (reply.document.mime_type.startswith("video/") or reply.document.mime_type.startswith("audio/")))):
             merge_sessions[user_id].append(reply)
-            return await message.reply_text(f"✅ Replied video added. Total: {len(merge_sessions[user_id])}\nSend more or use /done.")
-        await message.reply_text(f"🎬 You have {len(merge_sessions[user_id])} videos in your merge session.\nSend more or use /done to merge.")
+            return await message.reply_text(f"✅ Replied file added. Total: {len(merge_sessions[user_id])}\nSend more or use /done.")
+        await message.reply_text(f"🎬 You have {len(merge_sessions[user_id])} files in your merge session.\nSend more or use /done to merge.")
 
 @app.on_message(filters.incoming & filters.command([Command.DONE, f"{Command.DONE}@{BOT_USERNAME}"]) & is_auth)
 async def done_handler(client, message):
@@ -105,26 +105,26 @@ async def done_handler(client, message):
         return
     user_id = message.from_user.id
     if user_id not in merge_sessions or not merge_sessions[user_id]:
-        return await message.reply_text("❌ No videos in your merge session. Use /merge to start.")
+        return await message.reply_text("❌ No files in your merge session. Use /merge or /marge to start.")
 
-    video_messages = merge_sessions[user_id]
-    if len(video_messages) < 2:
-        return await message.reply_text(f"❌ Need at least two videos to merge. Currently have {len(video_messages)}.")
+    file_messages = merge_sessions[user_id]
+    if len(file_messages) < 2:
+        return await message.reply_text(f"❌ Need at least two files to merge. Currently have {len(file_messages)}.")
 
-    await message.reply_text(f"⏰ Added merge task ({len(video_messages)} videos) to queue...", quote=True)
-    await add_to_queue(message, "merge", options={'video_messages': video_messages})
+    await message.reply_text(f"⏰ Added merge task ({len(file_messages)} files) to queue...", quote=True)
+    await add_to_queue(message, "merge", options={'video_messages': file_messages})
 
     # Session is cleared in handle_merge_task or here?
     # Better here to allow user to start new session immediately
     del merge_sessions[user_id]
 
-@app.on_message(filters.incoming & (filters.video | filters.document) & is_auth, group=-1)
+@app.on_message(filters.incoming & (filters.video | filters.audio | filters.document) & is_auth, group=-1)
 async def collect_videos_for_merge(client, message):
     if not message.from_user:
         return
     user_id = message.from_user.id
     if user_id in merge_sessions:
-        if message.video or (message.document and message.document.mime_type and message.document.mime_type.startswith("video/")):
+        if message.video or message.audio or (message.document and message.document.mime_type and (message.document.mime_type.startswith("video/") or message.document.mime_type.startswith("audio/"))):
             merge_sessions[user_id].append(message)
-            await message.reply_text(f"✅ Video added to merge session. Total: {len(merge_sessions[user_id])}\nSend more or use /done to merge.", quote=True)
+            await message.reply_text(f"✅ File added to merge session. Total: {len(merge_sessions[user_id])}\nSend more or use /done to merge.", quote=True)
             message.stop_propagation()

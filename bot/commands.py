@@ -18,6 +18,7 @@ class Command:
     HARDSUB = "hardsub"
     MEDIAINFO = "mediainfo"
     MERGE = "merge"
+    MARGE = "marge"
     DONE = "done"
     LIST = "list"
     SPEEDTEST = "speedtest"

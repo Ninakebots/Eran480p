@@ -332,42 +332,48 @@ async def handle_mediainfo_task(message, options):
         await sent_message.edit_text(f"❌ Error: {e}")
 
 async def handle_merge_task(message, options):
-    video_messages = options.get('video_messages', [])
-    if not video_messages:
-        return await bot.send_message(chat_id=message.chat.id, text="❌ No videos found for merge.")
+    file_messages = options.get('video_messages', [])
+    if not file_messages:
+        return await bot.send_message(chat_id=message.chat.id, text="❌ No files found for merge.")
 
-    sent_message = await bot.send_message(chat_id=message.chat.id, text=f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ {len(video_messages)} 𝗏𝗂𝖽𝖾𝗈𝗌 𝖿𝗈𝗋 𝗆𝖾𝗋𝗀𝖾...📥", reply_to_message_id=message.id)
+    sent_message = await bot.send_message(chat_id=message.chat.id, text=f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ {len(file_messages)} 𝖿𝗂𝗅𝖾𝗌 𝖿𝗈𝗋 𝗆𝖾𝗋𝗀𝖾...📥", reply_to_message_id=message.id)
 
-    downloaded_videos = []
+    downloaded_files = []
     try:
-        for i, msg in enumerate(video_messages):
-            await sent_message.edit_text(f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗏𝗂𝖽𝖾𝗈 {i+1}/{len(video_messages)}...📥")
-            video_path = await bot.download_media(
+        for i, msg in enumerate(file_messages):
+            await sent_message.edit_text(f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖿𝗂𝗅𝖾 {i+1}/{len(file_messages)}...📥")
+            file_path = await bot.download_media(
                 message=msg,
                 progress=progress_for_pyrogram,
-                progress_args=(bot, f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗏𝗂𝖽𝖾𝗈 {i+1}...📥", sent_message, time.time())
+                progress_args=(bot, f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖿𝗂𝗅𝖾 {i+1}...📥", sent_message, time.time())
             )
-            if video_path:
-                downloaded_videos.append(video_path)
+            if file_path:
+                downloaded_files.append(file_path)
             else:
-                await sent_message.edit_text(f"❌ Failed to download video {i+1}. Aborting.")
-                for p in downloaded_videos:
+                await sent_message.edit_text(f"❌ Failed to download file {i+1}. Aborting.")
+                for p in downloaded_files:
                     if os.path.exists(p): os.remove(p)
                 return
 
         await sent_message.edit_text("🎬 C𝖺𝗅𝖼𝗎𝗅𝖺𝗍𝗂𝗇𝗀 𝖽𝗎𝗋𝖺𝗍𝗂𝗈𝗇...⚙️")
         from bot.helper_funcs.ffmpeg import get_duration, merge_videos
         total_duration = 0
-        for vid in downloaded_videos:
-            total_duration += get_duration(vid)
+        for f_path in downloaded_files:
+            total_duration += get_duration(f_path)
 
         if total_duration == 0:
             total_duration = 1 # Avoid division by zero
 
-        # We start with .mp4 but merge_videos might change it to .mkv
-        requested_output_path = os.path.join(DOWNLOAD_LOCATION, f"merged_{int(time.time())}.mp4")
+        # Determine output extension based on first file
+        is_audio = False
+        first_msg = file_messages[0]
+        if first_msg.audio or (first_msg.document and first_msg.document.mime_type and first_msg.document.mime_type.startswith("audio/")):
+            is_audio = True
 
-        result = await merge_videos(downloaded_videos, requested_output_path, bot, sent_message, total_duration)
+        ext = ".mp3" if is_audio else ".mp4"
+        requested_output_path = os.path.join(DOWNLOAD_LOCATION, f"merged_{int(time.time())}{ext}")
+
+        result = await merge_videos(downloaded_files, requested_output_path, bot, sent_message, total_duration)
 
         if result and os.path.exists(result):
             # Use centralized output_handler
@@ -387,5 +393,5 @@ async def handle_merge_task(message, options):
         except:
             pass
     finally:
-        for p in downloaded_videos:
+        for p in downloaded_files:
             if p and os.path.exists(p): os.remove(p)

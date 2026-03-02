@@ -401,12 +401,14 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
     return output_file if success and os.path.exists(output_file) else None
 
 async def merge_videos(video_list, output_path, bot, message, total_duration):
-    """Merge multiple videos using concat demuxer."""
+    """Merge multiple videos/audios using concat demuxer."""
     if not video_list:
         return None
     
-    # Ensure output is .mkv for better compatibility with copied streams
-    if not output_path.endswith('.mkv'):
+    # For videos, ensure output is .mkv for better compatibility with copied streams
+    # For audios, keep the requested extension (usually .mp3)
+    is_audio = output_path.lower().endswith(('.mp3', '.m4a', '.ogg', '.opus', '.wav'))
+    if not is_audio and not output_path.endswith('.mkv'):
         output_path = os.path.splitext(output_path)[0] + '.mkv'
 
     list_file = os.path.join(DOWNLOAD_LOCATION, f"merge_list_{message.id}_{int(time.time())}.txt")
