@@ -151,16 +151,19 @@ def style_text(text):
             return chr(ord(char) - ord('0') + 0x1D7E2)
         return char
 
-    # Protect HTML tags, curly-brace placeholders, and URLs
-    pattern = r'(<[^>]+>|\{[^}]*\}|https?://[^\s<>"]+)'
+    # Protect HTML tags, curly-brace placeholders, URLs, and bot commands
+    # Bot commands: starts with / followed by alphanumeric chars and potentially @botusername
+    # We use a non-capturing group (?:...) for @botusername to keep things simple with re.split
+    pattern = r'(<[^>]+>|\{[^}]*\}|https?://[^\s<>"]+|/[a-zA-Z0-9_]+(?:@[a-zA-Z0-9_]+)?)'
     parts = re.split(pattern, text)
 
     for i in range(len(parts)):
         # Even indices are the text to be styled
-        if i % 2 == 0:
+        # Captured groups (protected parts) are at odd indices
+        if i % 2 == 0 and parts[i]:
             parts[i] = ''.join(transform(c) for c in parts[i])
 
-    return ''.join(parts)
+    return ''.join(p for p in parts if p is not None)
 
 async def copy_to_dump_channel(bot, message, user_id):
     from bot import DUMP_CHANNEL

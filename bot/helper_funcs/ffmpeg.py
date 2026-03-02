@@ -330,6 +330,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
 
     s = get_encoding_settings(settings)
     has_video = validate_video_file(video_file)
+    LOGGER.info(f"File: {video_file}, has_video: {has_video}, settings: {s}")
 
     cmd = [
         'ffmpeg', '-hide_banner', '-loglevel', 'warning',
@@ -343,6 +344,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
             '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p10le",
         ])
     else:
+        LOGGER.warning(f"No video stream detected or ffprobe failed for {video_file}. Attempting to copy video stream.")
         cmd.extend(['-c:v', 'copy'])
 
     cmd.extend([
@@ -350,7 +352,16 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         '-c:s', 'copy', '-y', output_file
     ])
 
+    LOGGER.info(f"Starting FFmpeg with command: {' '.join(cmd)}")
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Compressing Video...")
+
+    if not success:
+        LOGGER.error("FFmpeg process returned success=False")
+    elif not os.path.exists(output_file):
+        LOGGER.error(f"FFmpeg succeeded but output file does not exist: {output_file}")
+    elif os.path.getsize(output_file) <= 1000:
+        LOGGER.error(f"FFmpeg succeeded but output file is too small ({os.path.getsize(output_file)} bytes): {output_file}")
+
     return output_file if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000 else None
 
 async def cut_video(video_file, output_directory, start_time, end_time, bot, message, settings=None):

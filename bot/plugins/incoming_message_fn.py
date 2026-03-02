@@ -283,8 +283,14 @@ async def incoming_compress_message_f(update, user_settings=None):
             )
         else:
             LOGGER.error(f"Compression failed - output path is None or doesn't exist: {o}")
+            error_msg = "⚠️ Cᴏᴍᴘʀᴇꜱꜱɪᴏɴ Fᴀɪʟᴇᴅ ⚠️"
+            if o is None:
+                error_msg += "\n(FFmpeg failed to produce output)"
+            elif not os.path.exists(o):
+                error_msg += f"\n(Output file not found: {os.path.basename(o)})"
+
             try:
-                await sent_message.edit_text(text="⚠️ Cᴏᴍᴘʀᴇꜱꜱɪᴏɴ Fᴀɪʟᴇᴅ ⚠️")
+                await sent_message.edit_text(text=error_msg)
             except:
                 pass
     else:
