@@ -38,6 +38,8 @@ async def execute_task(task_info):
 
     if task_type in ['compress', '480p', '720p', '1080p']:
         await handle_compression_task(message, task_type, options)
+    elif task_type == 'all_resolutions':
+        await handle_all_resolutions_task(message, options)
     elif task_type == 'extract_audio':
         await handle_extract_audio_task(message, options)
     elif task_type == 'extract_sub':
@@ -79,14 +81,71 @@ async def handle_compression_task(update, task_type, options):
 
     # Special handling for "All" resolution if generic "compress" task is called
     if user_settings.get('resolution') == 'All' and task_type == 'compress':
-        from bot.helper_funcs.utils import add_to_queue
-        await add_to_queue(update, "480p", options)
-        await add_to_queue(update, "720p", options)
-        await add_to_queue(update, "1080p", options)
+        await handle_all_resolutions_task(update, options)
         return
 
     from bot.plugins.incoming_message_fn import incoming_compress_message_f
     await incoming_compress_message_f(update, user_settings=user_settings)
+
+async def handle_all_resolutions_task(update, options):
+    user_id = update.from_user.id if update.from_user else update.chat.id
+    from bot.helper_funcs.database import get_user_data
+    user_settings = await get_user_data(user_id)
+
+    sent_message = await bot.send_message(chat_id=update.chat.id, text=Localisation.DOWNLOAD_START, reply_to_message_id=update.id)
+
+    try:
+        d_start = time.time()
+        os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
+
+        video_path = await bot.download_media(
+            message=update,
+            progress=progress_for_pyrogram,
+            progress_args=(bot, Localisation.DOWNLOAD_START, sent_message, d_start)
+        )
+
+        if not video_path or not os.path.exists(video_path):
+            return await sent_message.edit_text("❌ Download failed.")
+
+        download_time = TimeFormatter((time.time() - d_start) * 1000)
+        duration = get_duration(video_path)
+
+        await sent_message.edit_text(Localisation.COMPRESS_START)
+        c_start = time.time()
+
+        from bot.helper_funcs.ffmpeg import convert_video_all
+        output_files = await convert_video_all(video_path, DOWNLOAD_LOCATION, duration, bot, sent_message, user_settings)
+
+        encoding_time = TimeFormatter((time.time() - c_start) * 1000)
+
+        if not output_files:
+            await sent_message.edit_text("❌ Multi-resolution encoding failed.")
+            if os.path.exists(video_path): os.remove(video_path)
+            return
+
+        # Generate thumbnail for uploads
+        thumb_path = os.path.join(DOWNLOAD_LOCATION, f"thumb_all_{int(time.time())}.jpg")
+        thumb_path = get_thumbnail(video_path, thumb_path, time_offset=str(duration / 2))
+
+        for out_file in output_files:
+            await output_handler(
+                bot=bot,
+                update=update,
+                output_path=out_file,
+                download_time=download_time,
+                encoding_time=encoding_time,
+                thumb_path=thumb_path,
+                input_path=None, # We'll clean up video_path manually after all uploads
+                sent_message=None # Let it create new messages for each upload
+            )
+
+        if os.path.exists(video_path): os.remove(video_path)
+        if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
+        await sent_message.delete()
+
+    except Exception as e:
+        LOGGER.error(f"Error in handle_all_resolutions_task: {e}")
+        await sent_message.edit_text(f"❌ Error: {e}")
 
 async def handle_extract_audio_task(message, options):
     sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰᴏʀ ᴀᴜᴅɪᴏ ᴇxᴛʀᴀᴄᴛɪᴏɴ...📥", reply_to_message_id=message.id)
