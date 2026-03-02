@@ -14,13 +14,13 @@ class Config(object):
     APP_ID = int(get_config("APP_ID", "22884130"))
     API_HASH = get_config("API_HASH", "a69e8b16dac958f1bd31eee360ec53fa")
     UPDATES_CHANNEL = get_config("UPDATES_CHANNEL", None)
-    DUMP_CHANNEL = get_config("DUMP_CHANNEL", "-1003875340607")
+    DUMP_CHANNEL = get_config("DUMP_CHANNEL", "-1003215117714")
     
     # Auth settings
     AUTH_USERS = [8497538010, -1002809725620]
     AUTH_CHATS = []
 
-    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "7437113270:AAEvK-rfb2UTK41zgKUor5S2iF0yixIHemU")
+    TG_BOT_TOKEN = get_config("TG_BOT_TOKEN", "8461268419:AAECYUlcecWsMkemTu1fW-Id2f-5A8AHT-0")
     DOWNLOAD_LOCATION = get_config("DOWNLOAD_LOCATION", "/app/downloads")
     BOT_USERNAME = get_config("BOT_USERNAME", "ZaniEncoderBot")
     
