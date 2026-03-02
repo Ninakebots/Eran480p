@@ -80,9 +80,16 @@ async def update_handler(client, message):
     if message.from_user.id not in AUTH_USERS:
         return await message.reply_text("🔒 Admin Only")
 
+    args = message.text.split()
     sent = await message.reply_text("🔄 **Checking for updates...**")
     try:
-        out = subprocess.check_output(['git', 'pull']).decode()
+        if len(args) == 3:
+            remote = args[1]
+            branch = args[2]
+            out = subprocess.check_output(['git', 'pull', remote, branch]).decode()
+        else:
+            out = subprocess.check_output(['git', 'pull']).decode()
+
         if 'Already up to date.' in out:
             await sent.edit_text("✅ **Bot is already up to date.**")
         else:
@@ -91,39 +98,85 @@ async def update_handler(client, message):
     except Exception as e:
         await sent.edit_text(f"❌ **Update failed.**\n\nError: `{e}`")
 
+@app.on_message(filters.incoming & filters.command([Command.SETUPLOAD, f"{Command.SETUPLOAD}@{BOT_USERNAME}"]) & is_auth)
+async def setupload_handler(client, message):
+    args = message.text.split(" ")
+    if len(args) < 2:
+        return await message.reply_text(
+            "📍 **Upload Settings**\n\n"
+            "Usage: `/setupload [destination]`\n\n"
+            "**Destinations:**\n"
+            "• `pm` - Upload to Private Message\n"
+            "• `chat` - Upload to current chat\n"
+            "• `ID` - Upload to specific Chat ID (e.g., `-100...`)"
+        )
+
+    dest = args[1].lower()
+    user_id = message.from_user.id
+
+    if dest in ["pm", "chat"]:
+        await update_user_data(user_id, {"upload_destination": dest})
+        await message.reply_text(f"✅ Upload destination set to: `{dest.upper()}`")
+    else:
+        # Try to validate if it's a valid ID
+        try:
+            chat_id = int(dest)
+            await update_user_data(user_id, {"upload_destination": chat_id})
+            await message.reply_text(f"✅ Upload destination set to Chat ID: `{chat_id}`")
+        except ValueError:
+            await message.reply_text("❌ Invalid destination. Use `pm`, `chat` or a valid numeric `ID`.")
+
 @app.on_message(filters.incoming & filters.command([Command.SETMEDIA, f"{Command.SETMEDIA}@{BOT_USERNAME}"]) & is_auth)
 async def setmedia_handler(client, message):
     user_id = message.from_user.id
     user_data = await get_user_data(user_id)
     current_media = user_data.get("upload_as", "video")
+    res = user_data.get("resolution", "720p")
 
-    text = f"📂 **Media Settings**\n\nCᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{current_media.capitalize()}`\n\nSᴇʟᴇᴄᴛ ʜᴏᴡ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴜᴘʟᴏᴀᴅ ʏᴏᴜʀ ꜰɪʟᴇꜱ:"
+    text = (
+        f"📂 **Media Settings**\n\n"
+        f"Cᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{current_media.capitalize()}`\n"
+        f"Cᴜʀʀᴇɴᴛ Rᴇsᴏʟᴜᴛɪᴏɴ: `{res}`\n\n"
+        "Sᴇʟᴇᴄᴛ ᴀ sᴇᴛᴛɪɴɢ ᴛᴏ ᴄʜᴀɴɢᴇ ɪᴛ:"
+    )
 
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("Video", callback_data="set_media_video"),
             InlineKeyboardButton("Document", callback_data="set_media_document")
         ],
+        [InlineKeyboardButton("🎬 Resolution", callback_data="set_res")],
         [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
     ])
 
     await message.reply_text(text, reply_markup=keyboard)
 
-@app.on_callback_query(filters.regex(r"^set_media_(video|document)$"))
+@app.on_callback_query(filters.regex(r"^(set_media_(video|document)|back_to_media)$"))
 async def set_media_callback_handler(client, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     data = callback_query.data
-    media_type = "video" if data == "set_media_video" else "document"
 
-    await update_user_data(user_id, {"upload_as": media_type})
-    await callback_query.answer(f"✅ Upload preference set to {media_type.capitalize()}", show_alert=True)
+    if data.startswith("set_media_"):
+        media_type = "video" if data == "set_media_video" else "document"
+        await update_user_data(user_id, {"upload_as": media_type})
+        await callback_query.answer(f"✅ Upload preference set to {media_type.capitalize()}", show_alert=True)
 
-    text = f"📂 **Media Settings**\n\nCᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{media_type.capitalize()}`\n\nSᴇʟᴇᴄᴛ ʜᴏᴡ ʏᴏᴜ ᴡᴀɴᴛ ᴛᴏ ᴜᴘʟᴏᴀᴅ ʏᴏᴜʀ ꜰɪʟᴇꜱ:"
+    user_data = await get_user_data(user_id)
+    current_media = user_data.get("upload_as", "video")
+    res = user_data.get("resolution", "720p")
+
+    text = (
+        f"📂 **Media Settings**\n\n"
+        f"Cᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{current_media.capitalize()}`\n"
+        f"Cᴜʀʀᴇɴᴛ Rᴇsᴏʟᴜᴛɪᴏɴ: `{res}`\n\n"
+        "Sᴇʟᴇᴄᴛ ᴀ sᴇᴛᴛɪɴɢ ᴛᴏ ᴄʜᴀɴɢᴇ ɪᴛ:"
+    )
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("Video", callback_data="set_media_video"),
             InlineKeyboardButton("Document", callback_data="set_media_document")
         ],
+        [InlineKeyboardButton("🎬 Resolution", callback_data="set_res")],
         [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
     ])
     try:

@@ -34,4 +34,6 @@ class Command:
     PING = "ping"
     UPDATE = "update"
     SETMEDIA = "setmedia"
+    SAVETHUMB = "savethumb"
+    DELTHUMB = "delthumb"
     COMPOSE = "compose"

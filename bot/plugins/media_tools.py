@@ -118,6 +118,34 @@ async def done_handler(client, message):
     # Better here to allow user to start new session immediately
     del merge_sessions[user_id]
 
+@app.on_message(filters.incoming & filters.command([Command.SAVETHUMB, f"{Command.SAVETHUMB}@{BOT_USERNAME}"]) & is_auth)
+async def savethumb_handler(client, message):
+    if not message.from_user:
+        return
+    user_id = message.from_user.id
+    reply = message.reply_to_message
+    if not reply or not reply.photo:
+        return await message.reply_text("❌ Reply to a photo to save it as custom thumbnail.")
+
+    thumb_dir = "thumbnails"
+    os.makedirs(thumb_dir, exist_ok=True)
+    thumb_path = os.path.join(thumb_dir, f"{user_id}.jpg")
+
+    await client.download_media(message=reply.photo, file_name=thumb_path)
+    await message.reply_text("✅ Custom thumbnail saved.")
+
+@app.on_message(filters.incoming & filters.command([Command.DELTHUMB, f"{Command.DELTHUMB}@{BOT_USERNAME}"]) & is_auth)
+async def delthumb_handler(client, message):
+    if not message.from_user:
+        return
+    user_id = message.from_user.id
+    thumb_path = os.path.join("thumbnails", f"{user_id}.jpg")
+    if os.path.exists(thumb_path):
+        os.remove(thumb_path)
+        await message.reply_text("✅ Custom thumbnail deleted.")
+    else:
+        await message.reply_text("❌ No custom thumbnail found.")
+
 @app.on_message(filters.incoming & (filters.video | filters.audio | filters.document) & is_auth, group=-1)
 async def collect_videos_for_merge(client, message):
     if not message.from_user:

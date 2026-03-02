@@ -54,6 +54,8 @@ class Config(object):
 • /rsub - Remove all subtitles
 • /trim - Trim video (Start - End)
 • /mediainfo - Get detailed media info
+• /savethumb - Save custom thumbnail (Reply to photo)
+• /delthumb - Delete custom thumbnail
 • /Compose - to compose the file
 
 **Utility:**
@@ -71,7 +73,7 @@ class Config(object):
 
 **Hᴏᴡ ᴛᴏ ᴜsᴇ:**
 1. Jᴜsᴛ sᴇɴᴅ ᴀɴʏ ᴠɪᴅᴇᴏ ᴛᴏ ᴀᴜᴛᴏ-ᴄᴏᴍᴘʀᴇss.
-2. Usᴇ /us ʀᴇᴘʟɪᴇᴅ ᴛᴏ ᴀ ᴠɪᴅᴇᴏ ᴛᴏ ᴀᴄᴄᴇss ɪɴᴛᴇʀᴀᴄᴛɪᴠᴇ ᴛᴏᴏʟs.""")
+2. Usᴇ ᴛʜᴇ ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴏᴍᴍᴀɴᴅs ᴛᴏ ᴘʀᴏᴄᴇss ᴍᴇᴅɪᴀ.""")
     ABOUT_MESSAGE = get_config("ABOUT_MESSAGE", "<blockquote>✨ **Aʙᴏᴜᴛ Tʜɪs Bᴏᴛ** ✨\n\nI ᴀᴍ ᴀ sᴏᴘʜɪsᴛɪᴄᴀᴛᴇᴅ ᴠɪᴅᴇᴏ ᴘʀᴏᴄᴇssɪɴɢ ʙᴏᴛ ʙᴜɪʟᴛ ᴡɪᴛʜ Pʏᴛʜᴏɴ ᴀɴᴅ FFᴍᴘᴇɢ.\n\n<b>🏷 Nᴀᴍᴇ:</b> Zᴀɴɪ Eɴᴄᴏᴅᴇʀ Bᴏᴛ\n<b>🐍 Lᴀɴɢᴜᴀɢᴇ:</b> Python 3.10+\n<b>📚 Lɪʙʀᴀʀʏ:</b> Pyrogram\n<b>👨‍💻 Dᴇᴠᴇʟᴏᴘᴇʀ:</b> @TheAlphaBotz\n<b>📢 Cʜᴀɴɴᴇʟ:</b> @Team_Wine</blockquote>")
     
     # MongoDB Settings
