@@ -56,7 +56,6 @@ class Config(object):
 • /mediainfo - Get detailed media info
 • /savethumb - Save custom thumbnail (Reply to photo)
 • /delthumb - Delete custom thumbnail
-• /Compose - to compose the file
 
 **Utility:**
 • /list - Show active queue

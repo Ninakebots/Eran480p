@@ -86,10 +86,19 @@ async def update_handler(client, message):
         if len(args) == 3:
             remote = args[1]
             branch = args[2]
-            out = subprocess.check_output(['git', 'pull', remote, branch]).decode()
+            subprocess.check_output(['git', 'fetch', remote, branch])
         else:
             # Default upstream: https://github.com/Ninakebots/Eran480p (main branch)
-            out = subprocess.check_output(['git', 'pull', 'https://github.com/Ninakebots/Eran480p', 'main']).decode()
+            subprocess.check_output(['git', 'fetch', 'https://github.com/Ninakebots/Eran480p', 'main'])
+
+        curr_head = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+        new_head = subprocess.check_output(['git', 'rev-parse', 'FETCH_HEAD']).decode().strip()
+
+        if curr_head == new_head:
+            await sent.edit_text("✅ **Bot is already up to date.**")
+            return
+
+        out = subprocess.check_output(['git', 'reset', '--hard', 'FETCH_HEAD']).decode()
 
         if 'Already up to date.' in out:
             await sent.edit_text("✅ **Bot is already up to date.**")
