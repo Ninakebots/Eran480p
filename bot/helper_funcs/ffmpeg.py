@@ -346,7 +346,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     cmd = [
         'ffmpeg', '-hide_banner', '-loglevel', 'warning',
         '-i', video_file,
-        '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',
+        '-map', '0',
     ]
 
     if has_video:
@@ -356,17 +356,24 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         else:
             cmd.extend(['-crf', s['crf']])
 
+        cmd.extend(['-preset', s['preset']])
+        if s['codec'] == 'libx264':
+            cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+        elif s['codec'] == 'libx265':
+            cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+
         cmd.extend([
-            '-preset', s['preset'],
             '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
+            '-level', '3.1',
         ])
     else:
         LOGGER.warning(f"No video stream detected or ffprobe failed for {video_file}. Attempting to copy video stream.")
         cmd.extend(['-c:v', 'copy'])
 
     cmd.extend([
-        '-c:a', 'aac', '-b:a', s['audio_bitrate'],
-        '-c:s', 'copy', '-y', output_file
+        '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2',
+        '-c:s', 'copy', '-threads', '5', '-y', output_file
     ])
 
     LOGGER.info(f"Starting FFmpeg with command: {' '.join(cmd)}")
@@ -451,22 +458,37 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
     cmd.extend(['-filter_complex', filter_complex])
 
     # 480p output settings
-    cmd.extend(['-map', '[out480]', '-map', '0:a?', '-map', '0:s?', '-c:v', s['codec']])
+    cmd.extend(['-map', '[out480]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?', '-c:v', s['codec']])
     if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
     else: cmd.extend(['-crf', s['crf']])
-    cmd.extend(['-preset', s['preset'], '-c:a', 'aac', '-b:a', s['audio_bitrate'], '-c:s', 'copy', '-y', outputs['480p']])
+    cmd.extend(['-preset', s['preset']])
+    if s['codec'] == 'libx264':
+        cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+    elif s['codec'] == 'libx265':
+        cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+    cmd.extend(['-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs['480p']])
 
     # 720p output settings
-    cmd.extend(['-map', '[out720]', '-map', '0:a?', '-map', '0:s?', '-c:v', s['codec']])
+    cmd.extend(['-map', '[out720]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?', '-c:v', s['codec']])
     if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
     else: cmd.extend(['-crf', s['crf']])
-    cmd.extend(['-preset', s['preset'], '-c:a', 'aac', '-b:a', s['audio_bitrate'], '-c:s', 'copy', '-y', outputs['720p']])
+    cmd.extend(['-preset', s['preset']])
+    if s['codec'] == 'libx264':
+        cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+    elif s['codec'] == 'libx265':
+        cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+    cmd.extend(['-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs['720p']])
 
     # 1080p output settings
-    cmd.extend(['-map', '[out1080]', '-map', '0:a?', '-map', '0:s?', '-c:v', s['codec']])
+    cmd.extend(['-map', '[out1080]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?', '-c:v', s['codec']])
     if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
     else: cmd.extend(['-crf', s['crf']])
-    cmd.extend(['-preset', s['preset'], '-c:a', 'aac', '-b:a', s['audio_bitrate'], '-c:s', 'copy', '-y', outputs['1080p']])
+    cmd.extend(['-preset', s['preset']])
+    if s['codec'] == 'libx264':
+        cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+    elif s['codec'] == 'libx265':
+        cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+    cmd.extend(['-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs['1080p']])
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Multi-Resolution Encoding...")
 
@@ -496,20 +518,27 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
 
         cmd = [
             'ffmpeg', '-ss', str(start_s), '-i', video_file, '-t', str(duration),
-            '-map', '0:v:0?', '-map', '0:a?', '-map', '0:s?',
+            '-map', '0',
         ]
 
         if has_video:
+            cmd.extend(['-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset']])
+            if s['codec'] == 'libx264':
+                cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+            elif s['codec'] == 'libx265':
+                cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+
             cmd.extend([
-                '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
                 '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
+                '-level', '3.1',
             ])
         else:
             cmd.extend(['-c:v', 'copy'])
 
         cmd.extend([
-            '-c:a', 'aac', '-b:a', s['audio_bitrate'],
-            '-c:s', 'copy', '-y', output_file
+            '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+            '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2',
+            '-c:s', 'copy', '-threads', '5', '-y', output_file
         ])
 
         success = await run_ffmpeg_with_progress(cmd, duration, bot, message, f"Trimming & Compressing...")
@@ -628,9 +657,19 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
         'ffmpeg', '-i', video_file,
         '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format=yuv420p",
         '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
-        '-c:a', 'aac', '-b:a', s['audio_bitrate'],
-        '-map', '0:v:0?', '-map', '0:a?', '-y', output_file
     ]
+
+    if s['codec'] == 'libx264':
+        cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+    elif s['codec'] == 'libx265':
+        cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+
+    cmd.extend([
+        '-level', '3.1',
+        '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2',
+        '-map', '0', '-threads', '5', '-y', output_file
+    ])
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Adding Hard Subtitles...")
     return output_file if success and os.path.exists(output_file) else None
