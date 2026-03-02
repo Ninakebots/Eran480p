@@ -10,7 +10,7 @@ from bot import (
     APP_ID, API_HASH, AUTH_USERS, DOWNLOAD_LOCATION, LOGGER, TG_BOT_TOKEN, BOT_USERNAME, SESSION_NAME, data, app, AUTH_CHATS, 
     crf, resolution, audio_b, preset, codec, GOFILE_TOKEN
 )
-from bot.helper_funcs.utils import add_task, on_task_complete, sysinfo, is_auth, hbs
+from bot.helper_funcs.utils import sysinfo, is_auth, hbs, start_task_worker
 from bot.helper_funcs.display_progress import progress_for_pyrogram
 from bot.helper_funcs.gofile import upload_gofile
 from bot.helper_funcs.database import db, get_user_data, update_user_data
@@ -281,6 +281,7 @@ if __name__ == "__main__":
     
     async def startup():
         await init_bot()
+        start_task_worker()
         LOGGER.info("Bot started successfully!")
     
     app.loop.run_until_complete(startup())

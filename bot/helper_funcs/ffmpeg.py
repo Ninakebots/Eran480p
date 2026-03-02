@@ -64,6 +64,14 @@ def validate_video_file(filepath):
     except Exception:
         return False
 
+def escape_ffmpeg_path(path):
+    """Escape path for FFmpeg filters."""
+    # FFmpeg's filter path escaping is complex.
+    # Colons and backslashes need to be escaped with a backslash.
+    # Single quotes need to be escaped with a backslash and then another backslash for the shell if needed,
+    # but here we're passing a list to subprocess so we just need FFmpeg's internal escaping.
+    return path.replace('\\', '/').replace(':', '\\:').replace("'", "\\'")
+
 # --- Metadata Functions ---
 
 async def media_info(filepath):
@@ -134,95 +142,63 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
     """Run FFmpeg command and update progress on Telegram."""
     progress_file = os.path.join(DOWNLOAD_LOCATION, f"progress_{int(time.time() * 1000)}_{message.id}.txt")
 
-    # Ensure -progress is in the command
     if '-progress' not in cmd:
-        # Insert after 'ffmpeg'
         cmd.insert(1, '-progress')
         cmd.insert(2, progress_file)
 
-    # Initialize progress file
     with open(progress_file, 'w') as f: f.write("")
 
     start_time = time.time()
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    LOGGER.info(f"FFmpeg started (PID: {process.pid}): {' '.join(cmd)}")
     pid_list.insert(0, process.pid)
+    LOGGER.info(f"FFmpeg started (PID: {process.pid})")
 
     progress_msg = None
     try:
         progress_msg = await bot.send_message(chat_id=message.chat.id, text=f"🚀 {description}", reply_to_message_id=message.id)
-    except Exception:
-        pass
+    except Exception: pass
 
-    last_update_time = 0
-    success = False
-
-    try:
+    async def progress_monitor():
+        last_update_time = 0
         while process.returncode is None:
             await asyncio.sleep(PROGRESS_UPDATE_INTERVAL)
+            if not os.path.exists(progress_file): continue
 
-            if time.time() - start_time > FFMPEG_TIMEOUT:
-                LOGGER.error("FFmpeg process timed out")
-                process.terminate()
-                break
-
-            if not os.path.exists(progress_file):
-                continue
-
-            # Read progress data
             try:
-                # Read from the end of file to get latest stats
                 with open(progress_file, 'rb') as f:
-                    try:
-                        f.seek(-512, os.SEEK_END)
-                    except OSError:
-                        pass
+                    try: f.seek(-512, os.SEEK_END)
+                    except OSError: pass
                     content = f.read().decode('utf-8', errors='ignore')
-            except Exception:
-                continue
+            except Exception: continue
 
             if not content: continue
-
-            # Parse progress
             data = {}
             for line in content.split('\n'):
                 if '=' in line:
                     key, value = line.split('=', 1)
                     data[key.strip()] = value.strip()
 
-            if data.get('progress') == 'end':
-                success = True
-                break
+            if data.get('progress') == 'end': break
 
-            # Calculate stats
-            frame = safe_int_convert(data.get('frame', 0))
-            fps = safe_float_convert(data.get('fps', 0))
-            bitrate = data.get('bitrate', '0kbits/s')
-            speed_str = data.get('speed', '0x').replace('x', '')
-            speed = safe_float_convert(speed_str)
-            if speed <= 0: speed = 0.001 # Avoid division by zero
+            speed = safe_float_convert(data.get('speed', '0x').replace('x', ''))
+            if speed <= 0: speed = 0.001
 
             out_time_us = safe_int_convert(data.get('out_time_us', 0))
             elapsed_seconds = out_time_us / 1000000.0
-
-            percentage = (elapsed_seconds / total_duration) * 100 if total_duration > 0 else 0
-            percentage = min(max(percentage, 0), 99.9)
+            percentage = min(max((elapsed_seconds / total_duration) * 100 if total_duration > 0 else 0, 0), 99.9)
 
             eta_seconds = (total_duration - elapsed_seconds) / speed
             eta = TimeFormatter(eta_seconds * 1000) if eta_seconds > 0 else "Calculating..."
 
-            # Build progress string
-            filled = int(percentage / 10)
-            bar = FINISHED_PROGRESS_STR * filled + UN_FINISHED_PROGRESS_STR * (10 - filled)
-
+            bar = FINISHED_PROGRESS_STR * int(percentage / 10) + UN_FINISHED_PROGRESS_STR * (10 - int(percentage / 10))
             execution_time = TimeFormatter((time.time() - start_time) * 1000)
 
             stats_text = (
                 f"<b>{style_text(description)}</b>\n\n"
                 f"<blockquote>"
                 f"<b>{style_text('Progress:')}</b> [{bar}] {percentage:.2f}%\n"
-                f"<b>{style_text('Speed:')}</b> {speed:.2f}x | <b>{style_text('FPS:')}</b> {fps}\n"
-                f"<b>{style_text('Bitrate:')}</b> {bitrate}\n"
+                f"<b>{style_text('Speed:')}</b> {speed:.2f}x | <b>{style_text('FPS:')}</b> {data.get('fps', 0)}\n"
+                f"<b>{style_text('Bitrate:')}</b> {data.get('bitrate', '0kbits/s')}\n"
                 f"<b>{style_text('Elapsed:')}</b> {execution_time}\n"
                 f"<b>{style_text('ETA:')}</b> {eta}"
                 f"</blockquote>"
@@ -230,49 +206,30 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
 
             if time.time() - last_update_time >= 10 and progress_msg:
                 try:
-                    await progress_msg.edit_text(
-                        text=stats_text,
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_{process.pid}")
-                        ]])
-                    )
+                    await progress_msg.edit_text(text=stats_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_{process.pid}")]]))
                     last_update_time = time.time()
-                except Exception:
-                    pass
+                except Exception: pass
 
-        stdout, stderr = await process.communicate()
-        if process.returncode == 0:
-            success = True
-            LOGGER.info(f"FFmpeg process completed successfully (PID: {process.pid})")
-        else:
-            stderr_out = stderr.decode().strip() if stderr else "No error output"
-            stdout_out = stdout.decode().strip() if stdout else "No standard output"
+    monitor_task = asyncio.create_task(progress_monitor())
+    success = False
 
-            LOGGER.error(f"FFmpeg failed (PID: {process.pid}, Code: {process.returncode})")
-            LOGGER.error(f"STDOUT: {stdout_out}")
-            LOGGER.error(f"STDERR: {stderr_out}")
-            # Log the command that failed for easier debugging
-            LOGGER.debug(f"Failed command: {' '.join(cmd)}")
-            success = False
-
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
+        success = process.returncode == 0
+        if not success:
+            LOGGER.error(f"FFmpeg failed (PID: {process.pid}, Code: {process.returncode})\nSTDERR: {stderr.decode().strip()}")
+    except asyncio.TimeoutError:
+        LOGGER.error(f"FFmpeg timed out (PID: {process.pid})")
+        process.kill()
     except Exception as e:
-        LOGGER.error(f"Error in FFmpeg progress loop: {e}")
+        LOGGER.error(f"FFmpeg error (PID: {process.pid}): {e}")
     finally:
-        if process.returncode is None:
-            process.kill()
-            await process.wait()
-
-        if process.pid in pid_list:
-            pid_list.remove(process.pid)
-
-        if os.path.exists(progress_file):
-            os.remove(progress_file)
-
+        monitor_task.cancel()
+        if process.pid in pid_list: pid_list.remove(process.pid)
+        if os.path.exists(progress_file): os.remove(progress_file)
         if progress_msg:
-            try:
-                await progress_msg.delete()
-            except Exception:
-                pass
+            try: await progress_msg.delete()
+            except Exception: pass
 
     return success
 
@@ -423,82 +380,34 @@ async def convert_video_custom(video_file, output_directory, total_time, bot, me
 
 async def convert_video_all(video_file, output_directory, total_time, bot, message, settings=None):
     """Encode 480p, 720p, and 1080p simultaneously."""
-    if not os.path.exists(video_file):
-        return []
+    if not os.path.exists(video_file): return []
 
-    total_duration = safe_float_convert(total_time)
-    if total_duration == 0:
-        total_duration = get_duration(video_file)
-
+    total_duration = safe_float_convert(total_time) or get_duration(video_file)
     os.makedirs(output_directory, exist_ok=True)
     base_name = os.path.splitext(os.path.basename(video_file))[0]
     s = get_encoding_settings(settings)
     ext = ".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv"
 
-    outputs = {
-        "480p": os.path.join(output_directory, f"[480p] {base_name}{ext}"),
-        "720p": os.path.join(output_directory, f"[720p] {base_name}{ext}"),
-        "1080p": os.path.join(output_directory, f"[1080p] {base_name}{ext}")
-    }
+    res_map = {"480p": "854:480", "720p": "1280:720", "1080p": "1920:1080"}
+    outputs = {res: os.path.join(output_directory, f"[{res}] {base_name}{ext}") for res in res_map}
 
-    # FFmpeg multi-output command
-    cmd = [
-        'ffmpeg', '-hide_banner', '-loglevel', 'warning',
-        '-i', video_file,
-    ]
+    filter_complex = "split=3[v1][v2][v3]; " + "; ".join([f"[v{i+1}]scale={dim}:force_original_aspect_ratio=decrease,format=yuv420p[out{res}]" for i, (res, dim) in enumerate(res_map.items())])
 
-    # Complex filter for scaling
-    # split=3[v1][v2][v3]; [v1]scale=854:480:force_original_aspect_ratio=decrease,format=yuv420p[out480]; [v2]scale=1280:720:force_original_aspect_ratio=decrease,format=yuv420p[out720]; [v3]scale=1920:1080:force_original_aspect_ratio=decrease,format=yuv420p[out1080]
-    filter_complex = (
-        "split=3[v1][v2][v3];"
-        "[v1]scale=854:480:force_original_aspect_ratio=decrease,format=yuv420p[out480];"
-        "[v2]scale=1280:720:force_original_aspect_ratio=decrease,format=yuv420p[out720];"
-        "[v3]scale=1920:1080:force_original_aspect_ratio=decrease,format=yuv420p[out1080]"
-    )
-    cmd.extend(['-filter_complex', filter_complex])
+    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file, '-filter_complex', filter_complex]
 
-    # 480p output settings
-    cmd.extend(['-map', '[out480]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?', '-c:v', s['codec']])
-    if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
-    else: cmd.extend(['-crf', s['crf']])
-    cmd.extend(['-preset', s['preset']])
-    if s['codec'] == 'libx264':
-        cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
-    elif s['codec'] == 'libx265':
-        cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
-    cmd.extend(['-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs['480p']])
+    for res in res_map:
+        cmd.extend(['-map', f'[out{res}]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?'])
+        cmd.extend(['-c:v', s['codec'], '-preset', s['preset']])
+        if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
+        else: cmd.extend(['-crf', s['crf']])
 
-    # 720p output settings
-    cmd.extend(['-map', '[out720]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?', '-c:v', s['codec']])
-    if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
-    else: cmd.extend(['-crf', s['crf']])
-    cmd.extend(['-preset', s['preset']])
-    if s['codec'] == 'libx264':
-        cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
-    elif s['codec'] == 'libx265':
-        cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
-    cmd.extend(['-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs['720p']])
+        if s['codec'] in ['libx264', 'libx265']:
+            cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
 
-    # 1080p output settings
-    cmd.extend(['-map', '[out1080]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?', '-c:v', s['codec']])
-    if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
-    else: cmd.extend(['-crf', s['crf']])
-    cmd.extend(['-preset', s['preset']])
-    if s['codec'] == 'libx264':
-        cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
-    elif s['codec'] == 'libx265':
-        cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
-    cmd.extend(['-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs['1080p']])
+        cmd.extend(['-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs[res]])
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Multi-Resolution Encoding...")
-
-    result_files = []
-    if success:
-        for res, path in outputs.items():
-            if os.path.exists(path) and os.path.getsize(path) > 1000:
-                result_files.append(path)
-
-    return result_files
+    return [p for p in outputs.values() if success and os.path.exists(p) and os.path.getsize(p) > 1000]
 
 async def cut_video(video_file, output_directory, start_time, end_time, bot, message, settings=None):
     """Trim video with optional re-encoding using same settings."""
@@ -645,28 +554,22 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
 
     total_duration = get_duration(video_file)
     output_file = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mkv")
-
     s = get_encoding_settings(settings)
-
-    # Advanced escaping for subtitles filter
-    # FFmpeg subtitles filter requires escaping for colons and single quotes
-    # The path itself should be escaped for the filter argument
-    escaped_path = subtitle_file.replace('\\', '/').replace(':', '\\:').replace("'", r"\'")
+    escaped_path = escape_ffmpeg_path(subtitle_file)
 
     cmd = [
         'ffmpeg', '-i', video_file,
         '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format=yuv420p",
-        '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
+        '-c:v', s['codec'], '-preset', s['preset'],
     ]
+    if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
+    else: cmd.extend(['-crf', s['crf']])
 
-    if s['codec'] == 'libx264':
-        cmd.extend(['-x264-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
-    elif s['codec'] == 'libx265':
-        cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
+    if s['codec'] in ['libx264', 'libx265']:
+        cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
 
     cmd.extend([
-        '-level', '3.1',
-        '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
         '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2',
         '-map', '0', '-threads', '5', '-y', output_file
     ])
