@@ -106,6 +106,77 @@ class Database:
             LOGGER.error(f"Error checking authorization for chat {chat_id}: {e}")
             return False
 
+    async def get_global_settings(self, res_key: str) -> dict:
+        if self.users is None:
+            return {}
+        try:
+            doc = await self.users.find_one({"user_id": 0})
+            if doc and res_key in doc:
+                return doc[res_key]
+
+            # Initialization logic if missing
+            defaults = {
+                "480p": {
+                    "codec": "libx264",
+                    "audio_codec": "libopus",
+                    "crf": "30",
+                    "resolution": "640x360",
+                    "preset": "superfast",
+                    "audio_b": "48k",
+                    "video_bitrate": "Auto/None",
+                    "bits": "8 bits",
+                    "watermark": "None",
+                    "wm_size": "0"
+                },
+                "720p": {
+                    "codec": "libx264",
+                    "audio_codec": "libopus",
+                    "crf": "27",
+                    "resolution": "1280x720",
+                    "preset": "superfast",
+                    "audio_b": "128k",
+                    "video_bitrate": "Auto/None",
+                    "bits": "8 bits",
+                    "watermark": "None",
+                    "wm_size": "0"
+                },
+                "1080p": {
+                    "codec": "libx264",
+                    "audio_codec": "libopus",
+                    "crf": "24",
+                    "resolution": "1920x1080",
+                    "preset": "superfast",
+                    "audio_b": "192k",
+                    "video_bitrate": "Auto/None",
+                    "bits": "8 bits",
+                    "watermark": "None",
+                    "wm_size": "0"
+                }
+            }
+
+            if res_key in defaults:
+                await self.update_global_settings(res_key, defaults[res_key])
+                return defaults[res_key]
+
+            return {}
+        except Exception as e:
+            LOGGER.error(f"Error getting global settings: {e}")
+            return {}
+
+    async def update_global_settings(self, res_key: str, data: dict) -> bool:
+        if self.users is None:
+            return False
+        try:
+            await self.users.update_one(
+                {"user_id": 0},
+                {"$set": {res_key: data}},
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            LOGGER.error(f"Error updating global settings: {e}")
+            return False
+
     async def get_user_data(self, user_id: int) -> dict:
         return await self.get_user_settings(user_id)
 
@@ -125,3 +196,9 @@ async def get_user_data(user_id: int) -> dict:
 
 async def update_user_data(user_id: int, data: dict) -> bool:
     return await db.update_user_data(user_id, data)
+
+async def get_global_settings(res_key: str) -> dict:
+    return await db.get_global_settings(res_key)
+
+async def update_global_settings(res_key: str, data: dict) -> bool:
+    return await db.update_global_settings(res_key, data)

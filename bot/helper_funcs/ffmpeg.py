@@ -235,39 +235,45 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
 
 # --- Core Processing Functions ---
 
-def get_encoding_settings(settings=None):
-    """Get consistent encoding settings from provided settings or globals."""
-    if settings:
-        v_codec = settings.get('codec', codec[0] if codec else "libsvtav1")
-        v_crf = settings.get('crf', crf[0] if crf else "24")
-        v_bitrate = settings.get('video_bitrate')
-        v_preset = settings.get('preset', preset[0] if preset else "veryfast")
-        v_res = settings.get('resolution', resolution[0] if resolution else "1280x720")
-        a_bitrate = settings.get('audio_b', audio_b[0] if audio_b else "128k")
-    else:
-        v_codec = codec[0] if codec else "libsvtav1"
-        v_crf = crf[0] if crf else "24"
-        v_bitrate = None
-        v_preset = preset[0] if preset else "veryfast"
-        v_res = resolution[0] if resolution else "1280x720"
-        a_bitrate = audio_b[0] if audio_b else "128k"
+async def get_encoding_settings(settings=None, res_key=None):
+    """Get consistent encoding settings from global database or provided settings."""
+    if not res_key and settings:
+        res_key = settings.get('resolution', "480p")
 
-    # Normalize resolution
-    v_res = str(v_res).replace('p', '')
+    if not res_key:
+        res_key = "480p"
+
+    # Normalize res_key to keys used in DB (480p, 720p, 1080p)
+    res_key = str(res_key).lower().replace('p', '')
+    if res_key in ["480", "640", "854"]:
+        res_key = "480p"
+    elif res_key in ["720", "1280"]:
+        res_key = "720p"
+    elif res_key in ["1080", "1920"]:
+        res_key = "1080p"
+    else:
+        res_key = "480p"
+
+    from bot.helper_funcs.database import get_global_settings
+    g = await get_global_settings(res_key)
+
+    v_codec = g.get('codec', 'libx264')
+    v_crf = g.get('crf', '30')
+    v_bitrate = g.get('video_bitrate')
+    if v_bitrate in ["Auto/None", "None", None]:
+        v_bitrate = None
+
+    v_preset = g.get('preset', 'superfast')
+    v_res = str(g.get('resolution', '640x360')).lower().replace('p', '')
+    a_bitrate = g.get('audio_b', '48k')
+
+    # Normalize dimensions from resolution string like "640x360"
     if 'x' in v_res:
         res_w, res_h = v_res.split('x')
     elif ':' in v_res:
         res_w, res_h = v_res.split(':')
     else:
-        # User specified just a height, like "480"
-        if v_res == "480":
-            res_w, res_h = "854", "480"
-        elif v_res == "720":
-            res_w, res_h = "1280", "720"
-        elif v_res == "1080":
-            res_w, res_h = "1920", "1080"
-        else:
-            res_w, res_h = "-2", v_res
+        res_w, res_h = "-2", v_res
 
     return {
         'codec': v_codec,
@@ -276,7 +282,11 @@ def get_encoding_settings(settings=None):
         'preset': v_preset,
         'res_w': res_w,
         'res_h': res_h,
-        'audio_bitrate': a_bitrate
+        'audio_bitrate': a_bitrate,
+        'audio_codec': g.get('audio_codec', 'libopus'),
+        'bits': g.get('bits', '8 bits'),
+        'watermark': g.get('watermark', 'None'),
+        'wm_size': g.get('wm_size', '0')
     }
 
 async def convert_video(video_file, output_directory, total_time, bot, message, settings=None):
@@ -291,7 +301,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     os.makedirs(output_directory, exist_ok=True)
 
     base_name = os.path.splitext(os.path.basename(video_file))[0]
-    s = get_encoding_settings(settings)
+    s = await get_encoding_settings(settings)
 
     # Determine extension based on codec
     ext = ".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv"
@@ -328,7 +338,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         cmd.extend(['-c:v', 'copy'])
 
     cmd.extend([
-        '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-c:a', s.get('audio_codec', 'libopus'), '-b:a', s['audio_bitrate'],
         '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2',
         '-c:s', 'copy', '-threads', '5', '-y', output_file
     ])
@@ -385,17 +395,20 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
     total_duration = safe_float_convert(total_time) or get_duration(video_file)
     os.makedirs(output_directory, exist_ok=True)
     base_name = os.path.splitext(os.path.basename(video_file))[0]
-    s = get_encoding_settings(settings)
-    ext = ".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv"
 
-    res_map = {"480p": "854:480", "720p": "1280:720", "1080p": "1920:1080"}
-    outputs = {res: os.path.join(output_directory, f"[{res}] {base_name}{ext}") for res in res_map}
+    s480 = await get_encoding_settings(res_key="480p")
+    s720 = await get_encoding_settings(res_key="720p")
+    s1080 = await get_encoding_settings(res_key="1080p")
 
-    filter_complex = "split=3[v1][v2][v3]; " + "; ".join([f"[v{i+1}]scale={dim}:force_original_aspect_ratio=decrease,format=yuv420p[out{res}]" for i, (res, dim) in enumerate(res_map.items())])
+    settings_map = {"480p": s480, "720p": s720, "1080p": s1080}
+    ext_map = {res: (".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv") for res, s in settings_map.items()}
+    outputs = {res: os.path.join(output_directory, f"[{res}] {base_name}{ext_map[res]}") for res in settings_map}
+
+    filter_complex = "split=3[v1][v2][v3]; " + "; ".join([f"[v{i+1}]scale={settings_map[res]['res_w']}:{settings_map[res]['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p[out{res}]" for i, res in enumerate(settings_map)])
 
     cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file, '-filter_complex', filter_complex]
 
-    for res in res_map:
+    for res, s in settings_map.items():
         cmd.extend(['-map', f'[out{res}]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?'])
         cmd.extend(['-c:v', s['codec'], '-preset', s['preset']])
         if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
@@ -404,7 +417,7 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
         if s['codec'] in ['libx264', 'libx265']:
             cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
 
-        cmd.extend(['-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs[res]])
+        cmd.extend(['-level', '3.1', '-c:a', s.get('audio_codec', 'libopus'), '-b:a', s['audio_bitrate'], '-ac', '2', '-ab', s['audio_bitrate'], '-vbr', '2', '-c:s', 'copy', '-threads', '5', '-y', outputs[res]])
 
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Multi-Resolution Encoding...")
     return [p for p in outputs.values() if success and os.path.exists(p) and os.path.getsize(p) > 1000]
@@ -422,7 +435,7 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
     duration = max(end_s - start_s, 0)
 
     if settings:
-        s = get_encoding_settings(settings)
+        s = await get_encoding_settings(settings)
         has_video = validate_video_file(video_file)
 
         cmd = [
@@ -554,7 +567,7 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
 
     total_duration = get_duration(video_file)
     output_file = os.path.join(output_directory, f"hard_sub_{int(time.time())}.mkv")
-    s = get_encoding_settings(settings)
+    s = await get_encoding_settings(settings)
     escaped_path = escape_ffmpeg_path(subtitle_file)
 
     cmd = [

@@ -75,7 +75,7 @@ async def ping_handler(client, message):
     latency = (end_time - start_time) * 1000
     await sent.edit_text(f"🏓 **Pong!**\nLatency: `{latency:.2f} ms`")
 
-@app.on_message(filters.incoming & filters.command([Command.SETUPLOAD, f"{Command.SETUPLOAD}@{BOT_USERNAME}"]) & is_auth)
+@app.on_message(filters.incoming & filters.command([Command.SETUPLOAD, f"{Command.SETUPLOAD}@{BOT_USERNAME}"]) & is_personal_auth)
 async def setupload_handler(client, message):
     args = message.text.split(" ")
     if len(args) < 2:
@@ -103,7 +103,7 @@ async def setupload_handler(client, message):
         except ValueError:
             await message.reply_text("❌ Invalid destination. Use `pm`, `chat` or a valid numeric `ID`.")
 
-@app.on_message(filters.incoming & filters.command([Command.SETMEDIA, f"{Command.SETMEDIA}@{BOT_USERNAME}"]) & is_auth)
+@app.on_message(filters.incoming & filters.command([Command.SETMEDIA, f"{Command.SETMEDIA}@{BOT_USERNAME}"]) & is_personal_auth)
 async def setmedia_handler(client, message):
     user_id = message.from_user.id
     user_data = await get_user_data(user_id)
@@ -131,6 +131,9 @@ async def setmedia_handler(client, message):
 @app.on_callback_query(filters.regex(r"^(set_media_(video|document)|back_to_media)$"))
 async def set_media_callback_handler(client, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
+    if user_id not in AUTH_USERS or user_id <= 0:
+        return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
+
     data = callback_query.data
 
     if data.startswith("set_media_"):
