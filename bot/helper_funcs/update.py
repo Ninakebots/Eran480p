@@ -13,11 +13,18 @@ def run_git_command(args):
         raise Exception(e.output.decode())
 
 async def check_for_updates(remote=None, branch=None):
-    if remote and branch:
-        run_git_command(['fetch', remote, branch])
+    if remote:
+        if branch:
+            run_git_command(['fetch', remote, branch])
+        else:
+            run_git_command(['fetch', remote])
     else:
-        # Default upstream
-        run_git_command(['fetch', 'https://github.com/Ninakebots/Eran480p', 'main'])
+        # Try to get remote URL from origin, fallback to hardcoded if it fails
+        try:
+            remote_url = run_git_command(['remote', 'get-url', 'origin'])
+            run_git_command(['fetch', remote_url])
+        except Exception:
+            run_git_command(['fetch', 'https://github.com/Ninakebots/Eran480p', 'main'])
 
     curr_head = run_git_command(['rev-parse', 'HEAD'])
     new_head = run_git_command(['rev-parse', 'FETCH_HEAD'])

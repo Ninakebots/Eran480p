@@ -15,7 +15,7 @@ async def update_handler(client, message):
     sent = await message.reply_text("🔄 **Checking for updates...**")
 
     try:
-        remote = args[1] if len(args) > 2 else None
+        remote = args[1] if len(args) > 1 else None
         branch = args[2] if len(args) > 2 else None
 
         has_update, curr, new = await check_for_updates(remote, branch)

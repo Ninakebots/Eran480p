@@ -7,6 +7,7 @@ import subprocess
 import math
 import logging
 import shutil
+import shlex
 from contextlib import asynccontextmanager
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
@@ -377,6 +378,39 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         LOGGER.error(f"FFmpeg succeeded but output file does not exist: {output_file}")
     elif os.path.getsize(output_file) <= 1000:
         LOGGER.error(f"FFmpeg succeeded but output file is too small ({os.path.getsize(output_file)} bytes): {output_file}")
+
+    return output_file if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000 else None
+
+async def convert_video_custom(video_file, output_directory, total_time, bot, message, ffmpegcode):
+    """Run video compression with custom FFmpeg flags string."""
+    if not os.path.exists(video_file):
+        return None
+
+    total_duration = safe_float_convert(total_time)
+    if total_duration == 0:
+        total_duration = get_duration(video_file)
+
+    os.makedirs(output_directory, exist_ok=True)
+    base_name = os.path.splitext(os.path.basename(video_file))[0]
+
+    # Simple heuristic to determine extension from the ffmpegcode
+    # Defaults to .mp4 if libx264/265 are mentioned, otherwise .mkv
+    ext = ".mkv"
+    if "libx264" in ffmpegcode or "libx265" in ffmpegcode:
+        ext = ".mp4"
+
+    output_file = os.path.join(output_directory, f"[Encoded] {base_name}{ext}")
+
+    # Build the full command
+    # Expected ffmpegcode is just the flags (e.g., "-c:v libx264 ...")
+    flags = shlex.split(ffmpegcode)
+
+    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file]
+    cmd.extend(flags)
+    cmd.extend(['-y', output_file])
+
+    LOGGER.info(f"Starting custom FFmpeg with command: {' '.join(cmd)}")
+    success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Custom Compression...")
 
     return output_file if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000 else None
 
