@@ -250,17 +250,6 @@ if __name__ == "__main__":
         except Exception:
             pass
 
-    @app.on_message(filters.incoming & (filters.video | filters.document) & is_auth)
-    async def video_or_document_handler(app, message):
-        if not message.from_user:
-            return
-        # Skip if it's a subtitle file
-        if message.document and message.document.file_name and message.document.file_name.lower().endswith(('.srt', '.ass', '.vtt')):
-            return
-        query = await message.reply_text("⏰ Added to queue...\nPlease be patient, compression will start soon", quote=True)
-        from bot.helper_funcs.utils import add_to_queue
-        await add_to_queue(message, "compress")
-        await query.delete()
 
     @app.on_message(filters.incoming & filters.command(["settings", f"settings@{BOT_USERNAME}"]) & is_auth)
     async def settings(app, message):

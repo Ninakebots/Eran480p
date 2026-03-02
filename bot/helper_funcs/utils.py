@@ -104,13 +104,13 @@ async def sysinfo(e):
         ul_size = psutil.net_io_counters().bytes_sent
 
         text = (
-            f"<u><b>Sʏꜱᴛᴇᴍ Sᴛᴀᴛꜱ 🧮</b></u>\n"
+            f"<u><b>{style_text('System Stats')} 🧮</b></u>\n"
             f"<blockquote>"
-            f"<b>🎖️ CPU Freq:</b> `{freq_current}`\n"
-            f"<b>CPU Cores:</b> `{cpu_count}` physical | `{cpu_count_logical}` logical\n\n"
-            f"<b>💾 Disk:</b> `{hbs(disk.used)}` / `{hbs(disk.total)}` ({disk.percent}%)\n"
-            f"<b>🎮 RAM:</b> `{hbs(ram_stats.used)}` / `{hbs(ram_stats.total)}` ({ram_stats.percent}%)\n\n"
-            f"<b>🔺 Uploaded:</b> `{hbs(ul_size)}` | <b>🔻 Downloaded:</b> `{hbs(dl_size)}`"
+            f"<b>🎖️ {style_text('CPU Freq:')}</b> `{freq_current}`\n"
+            f"<b>{style_text('CPU Cores:')}</b> `{cpu_count}` {style_text('physical')} | `{cpu_count_logical}` {style_text('logical')}\n\n"
+            f"<b>💾 {style_text('Disk:')}</b> `{hbs(disk.used)}` / `{hbs(disk.total)}` ({disk.percent}%)\n"
+            f"<b>🎮 {style_text('RAM:')}</b> `{hbs(ram_stats.used)}` / `{hbs(ram_stats.total)}` ({ram_stats.percent}%)\n\n"
+            f"<b>🔺 {style_text('Uploaded:')}</b> `{hbs(ul_size)}` | <b>🔻 {style_text('Downloaded:')}</b> `{hbs(dl_size)}`"
             f"</blockquote>"
         )
         await e.reply_text(text)
@@ -128,6 +128,39 @@ def safe_float_convert(value, default=0.0):
         return default
     except (ValueError, TypeError):
         return default
+
+def style_text(text):
+    """
+    Converts alphanumeric characters to Mathematical Sans-Serif font (𝖠𝖻𝖼𝖽).
+    Ignores HTML tags, curly-brace placeholders, and URLs.
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    # Character mapping for Mathematical Sans-Serif
+    # A-Z: U+1D5A0 - U+1D5B9 (𝖠-𝖹)
+    # a-z: U+1D5BA - U+1D5D3 (𝖺-𝗓)
+    # 0-9: U+1D7E2 - U+1D7EB (𝟢-𝟫)
+
+    def transform(char):
+        if 'A' <= char <= 'Z':
+            return chr(ord(char) - ord('A') + 0x1D5A0)
+        elif 'a' <= char <= 'z':
+            return chr(ord(char) - ord('a') + 0x1D5BA)
+        elif '0' <= char <= '9':
+            return chr(ord(char) - ord('0') + 0x1D7E2)
+        return char
+
+    # Protect HTML tags, curly-brace placeholders, and URLs
+    pattern = r'(<[^>]+>|\{[^}]*\}|https?://[^\s<>"]+)'
+    parts = re.split(pattern, text)
+
+    for i in range(len(parts)):
+        # Even indices are the text to be styled
+        if i % 2 == 0:
+            parts[i] = ''.join(transform(c) for c in parts[i])
+
+    return ''.join(parts)
 
 async def copy_to_dump_channel(bot, message, user_id):
     from bot import DUMP_CHANNEL
@@ -204,14 +237,14 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
                     file_size = hbs(os.path.getsize(output_path))
 
                     text = (
-                        f"✅ **File Encoded & Uploaded to Gofile!**\n\n"
-                        f"📁 **File Name:** `{file_name}`\n"
-                        f"⚖️ **Size:** `{file_size}`\n"
-                        f"🔗 **Download Link:** {download_url}\n\n"
+                        f"✅ **" + style_text("File Encoded & Uploaded to Gofile!") + "**\n\n"
+                        f"📁 **" + style_text("File Name:") + "** `{file_name}`\n"
+                        f"⚖️ **" + style_text("Size:") + "** `{file_size}`\n"
+                        f"🔗 **" + style_text("Download Link:") + "** {download_url}\n\n"
                         f"<blockquote>"
-                        f"<b>📥 Dᴏᴡɴʟᴏᴀᴅ Tɪᴍᴇ:</b> {d_time}\n"
-                        f"<b>📀 Eɴᴄᴏᴅɪɴɢ Tɪᴍᴇ:</b> {e_time}\n"
-                        f"<b>📤 Uᴘʟᴏᴀᴅ Tɪᴍᴇ:</b> {u_time}"
+                        f"<b>📥 " + style_text("Download Time:") + "</b> {d_time}\n"
+                        f"<b>📀 " + style_text("Encoding Time:") + "</b> {e_time}\n"
+                        f"<b>📤 " + style_text("Upload Time:") + "</b> {u_time}"
                         f"</blockquote>"
                     )
                     await bot.send_message(

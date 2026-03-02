@@ -115,8 +115,6 @@ async def incoming_start_message_f(bot, update):
         )
     
 async def incoming_compress_message_f(update, user_settings=None):
-    if not update.from_user:
-        return
     isAuto = True
     d_start = time.time()
     c_start = time.time()
@@ -235,7 +233,7 @@ async def incoming_compress_message_f(update, user_settings=None):
         try:
             # Get user settings from DB if not provided
             if user_settings is None:
-                user_id = update.from_user.id if update.from_user else update.chat.id
+                user_id = update.from_user.id if (update.from_user and update.from_user.id) else update.chat.id
                 from bot.helper_funcs.database import get_user_data
                 user_settings = await get_user_data(user_id)
 
