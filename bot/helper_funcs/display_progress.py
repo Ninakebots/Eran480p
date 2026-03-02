@@ -15,6 +15,7 @@ from bot import (
     UN_FINISHED_PROGRESS_STR,
     DOWNLOAD_LOCATION
 )
+from bot.helper_funcs.utils import style_text
 
 
 async def progress_for_pyrogram(
@@ -44,12 +45,12 @@ async def progress_for_pyrogram(
         elapsed_time = TimeFormatter(milliseconds=elapsed_time)
         estimated_total_time = TimeFormatter(milliseconds=estimated_total_time)
 
-        progress = "<blockquote>[{0}{1}] \n📊 <b>Pʀᴏɢʀᴇꜱꜱ:</b> {2}%\n".format(
+        progress = "<blockquote>[{0}{1}] \n📊 <b>" + style_text("Progress:") + "</b> {2}%\n".format(
             ''.join([FINISHED_PROGRESS_STR for i in range(math.floor(percentage / 10))]),
             ''.join([UN_FINISHED_PROGRESS_STR for i in range(10 - math.floor(percentage / 10))]),
             round(percentage, 2))
 
-        tmp = progress + "{0} of {1}\nSᴘᴇᴇᴅ: {2}/s\nETA: {3}\n</blockquote>".format(
+        tmp = (progress + "{0} " + style_text("of") + " {1}\n" + style_text("Speed:") + " {2}/s\n" + style_text("ETA:") + " {3}\n</blockquote>").format(
             humanbytes(current),
             humanbytes(total),
             humanbytes(speed),

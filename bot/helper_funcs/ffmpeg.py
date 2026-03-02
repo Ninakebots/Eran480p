@@ -13,7 +13,7 @@ from hachoir.parser import createParser
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot.helper_funcs.display_progress import TimeFormatter, humanbytes
-from bot.helper_funcs.utils import safe_float_convert, safe_int_convert, hbs
+from bot.helper_funcs.utils import safe_float_convert, safe_int_convert, hbs, style_text
 from bot.helper_funcs.database import db
 from bot.config import AUTH_CHATS, AUTH_USERS
 from bot.localisation import Localisation
@@ -217,13 +217,13 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
             execution_time = TimeFormatter((time.time() - start_time) * 1000)
 
             stats_text = (
-                f"<b>{description}</b>\n\n"
+                f"<b>{style_text(description)}</b>\n\n"
                 f"<blockquote>"
-                f"<b>Pʀᴏɢʀᴇꜱꜱ:</b> [{bar}] {percentage:.2f}%\n"
-                f"<b>Sᴘᴇᴇᴅ:</b> {speed:.2f}x | <b>FPS:</b> {fps}\n"
-                f"<b>Bɪᴛʀᴀᴛᴇ:</b> {bitrate}\n"
-                f"<b>Eʟᴀᴘꜱᴇᴅ:</b> {execution_time}\n"
-                f"<b>ETA:</b> {eta}"
+                f"<b>{style_text('Progress:')}</b> [{bar}] {percentage:.2f}%\n"
+                f"<b>{style_text('Speed:')}</b> {speed:.2f}x | <b>{style_text('FPS:')}</b> {fps}\n"
+                f"<b>{style_text('Bitrate:')}</b> {bitrate}\n"
+                f"<b>{style_text('Elapsed:')}</b> {execution_time}\n"
+                f"<b>{style_text('ETA:')}</b> {eta}"
                 f"</blockquote>"
             )
 
