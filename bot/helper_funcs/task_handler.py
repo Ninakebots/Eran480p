@@ -63,6 +63,61 @@ async def execute_task(task_info):
     else:
         LOGGER.warning(f"Unknown task type: {task_type}")
 
+async def CompressVideo(bot, query, ffmpegcode, c_thumb=None):
+    """Directly compress video from callback query with custom ffmpeg code."""
+    update = query.message
+    # Callback query messages are usually the bot's message.
+    # The actual media is in the message it's replying to.
+    media_message = update.reply_to_message
+    if not media_message:
+        return await query.answer("❌ Media message not found.", show_alert=True)
+
+    sent_message = await bot.send_message(chat_id=update.chat.id, text=Localisation.DOWNLOAD_START, reply_to_message_id=media_message.id)
+    await query.answer("🚀 Starting Custom Compression...")
+
+    try:
+        d_start = time.time()
+        os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
+
+        video_path = await bot.download_media(
+            message=media_message,
+            progress=progress_for_pyrogram,
+            progress_args=(bot, Localisation.DOWNLOAD_START, sent_message, d_start)
+        )
+
+        if not video_path or not os.path.exists(video_path):
+            return await sent_message.edit_text("❌ Download failed.")
+
+        download_time = TimeFormatter((time.time() - d_start) * 1000)
+        duration = get_duration(video_path)
+
+        await sent_message.edit_text(Localisation.COMPRESS_START)
+        c_start = time.time()
+
+        from bot.helper_funcs.ffmpeg import convert_video_custom
+        output_file = await convert_video_custom(video_path, DOWNLOAD_LOCATION, duration, bot, sent_message, ffmpegcode)
+
+        encoding_time = TimeFormatter((time.time() - c_start) * 1000)
+
+        if output_file and os.path.exists(output_file):
+            await output_handler(
+                bot=bot,
+                update=media_message,
+                output_path=output_file,
+                download_time=download_time,
+                encoding_time=encoding_time,
+                thumb_path=c_thumb,
+                input_path=video_path,
+                sent_message=sent_message
+            )
+        else:
+            await sent_message.edit_text("❌ Compression failed. Output file not generated.")
+            if os.path.exists(video_path): os.remove(video_path)
+
+    except Exception as e:
+        LOGGER.error(f"Error in CompressVideo: {e}")
+        await sent_message.edit_text(f"❌ Error: {e}")
+
 async def handle_compression_task(update, task_type, options):
     # Fetch user settings from DB
     user_id = update.from_user.id if update.from_user else update.chat.id

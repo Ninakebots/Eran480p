@@ -109,6 +109,15 @@ class Database:
     async def get_user_data(self, user_id: int) -> dict:
         return await self.get_user_settings(user_id)
 
+    async def get_ffmpegcode(self, user_id: int) -> Optional[str]:
+        data = await self.get_user_data(user_id)
+        return data.get('ffmpeg_code')
+
+    async def get_thumbnail(self, user_id: int) -> Optional[str]:
+        import os
+        thumb_path = os.path.join("thumbnails", f"{user_id}.jpg")
+        return thumb_path if os.path.exists(thumb_path) else None
+
 db = Database()
 
 async def get_user_data(user_id: int) -> dict:

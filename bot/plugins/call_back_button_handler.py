@@ -174,6 +174,59 @@ async def button(bot, update: CallbackQuery):
             except:
                 pass
 
+    elif cb_data == '480pc':
+        try:
+            c_thumb = await db.get_thumbnail(update.from_user.id)
+            ffmpeg = "-preset veryfast -c:v libx264 -s 840x480 -x264-params 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1' -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 -threads 5"
+            from bot.helper_funcs.task_handler import CompressVideo
+            await CompressVideo(bot=bot, query=update, ffmpegcode=ffmpeg, c_thumb=c_thumb)
+
+        except Exception as e:
+            LOGGER.error(e)
+
+    elif cb_data == '720pc':
+        try:
+            c_thumb = await db.get_thumbnail(update.from_user.id)
+            ffmpeg = "-preset veryfast -c:v libx264 -s 1280x720 -x264-params 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1' -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 -threads 5"
+            from bot.helper_funcs.task_handler import CompressVideo
+            await CompressVideo(bot=bot, query=update, ffmpegcode=ffmpeg, c_thumb=c_thumb)
+
+        except Exception as e:
+            LOGGER.error(e)
+
+    elif cb_data == '1080pc':
+        try:
+            c_thumb = await db.get_thumbnail(update.from_user.id)
+            ffmpeg = "-preset veryfast -c:v libx264 -s 1920x1080 -x264-params 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1' -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 -threads 5"
+            from bot.helper_funcs.task_handler import CompressVideo
+            await CompressVideo(bot=bot, query=update, ffmpegcode=ffmpeg, c_thumb=c_thumb)
+
+        except Exception as e:
+            LOGGER.error(e)
+
+    elif cb_data == '2160pc':
+        try:
+            c_thumb = await db.get_thumbnail(update.from_user.id)
+            ffmpeg = "-preset veryfast -c:v libx264 -s 3840x2160 -x264-params 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1' -pix_fmt yuv420p -crf 30 -c:a libopus -b:a 32k -c:s copy -map 0 -ac 2 -ab 32k -vbr 2 -level 3.1 -threads 5"
+            from bot.helper_funcs.task_handler import CompressVideo
+            await CompressVideo(bot=bot, query=update, ffmpegcode=ffmpeg, c_thumb=c_thumb)
+
+        except Exception as e:
+            LOGGER.error(e)
+
+    elif cb_data == 'custompc':
+        try:
+            c_thumb = await db.get_thumbnail(update.from_user.id)
+            ffmpeg_code = await db.get_ffmpegcode(update.from_user.id)
+
+            if ffmpeg_code:
+                from bot.helper_funcs.task_handler import CompressVideo
+                await CompressVideo(bot=bot, query=update, ffmpegcode=ffmpeg_code, c_thumb=c_thumb)
+            else:
+                await update.answer("❌ No custom FFmpeg code found. Set it in settings.", show_alert=True)
+        except Exception as e:
+            LOGGER.error(e)
+
     if cb_data.startswith("sub_"):
         if user_id in subtitle_sessions:
             sub_type = cb_data.split("_")[1]
