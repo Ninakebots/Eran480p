@@ -50,7 +50,6 @@ class Config(object):
 • /addaudio - Add audio to video (Reply to audio)
 • /remaudio - Remove audio from video
 • /sub - Add soft subtitles (Reply to sub)
-• /hsub - Add hard subtitles (Reply to sub)
 • /rsub - Remove all subtitles
 • /trim - Trim video (Start - End)
 • /mediainfo - Get detailed media info
@@ -73,7 +72,7 @@ class Config(object):
 **Hᴏᴡ ᴛᴏ ᴜsᴇ:**
 1. Jᴜsᴛ sᴇɴᴅ ᴀɴʏ ᴠɪᴅᴇᴏ ᴛᴏ ᴀᴜᴛᴏ-ᴄᴏᴍᴘʀᴇss.
 2. Usᴇ ᴛʜᴇ ᴀᴠᴀɪʟᴀʙʟᴇ ᴄᴏᴍᴍᴀɴᴅs ᴛᴏ ᴘʀᴏᴄᴇss ᴍᴇᴅɪᴀ.""")
-    ABOUT_MESSAGE = get_config("ABOUT_MESSAGE", "<blockquote>✨ **Aʙᴏᴜᴛ Tʜɪs Bᴏᴛ** ✨\n\nI ᴀᴍ ᴀ sᴏᴘʜɪsᴛɪᴄᴀᴛᴇᴅ ᴠɪᴅᴇᴏ ᴘʀᴏᴄᴇssɪɴɢ ʙᴏᴛ ʙᴜɪʟᴛ ᴡɪᴛʜ Pʏᴛʜᴏɴ ᴀɴᴅ FFᴍᴘᴇɢ.\n\n<b>🏷 Nᴀᴍᴇ:</b> Zᴀɴɪ Eɴᴄᴏᴅᴇʀ Bᴏᴛ\n<b>🐍 Lᴀɴɢᴜᴀɢᴇ:</b> Python 3.10+\n<b>📚 Lɪʙʀᴀʀʏ:</b> Pyrogram\n<b>👨‍💻 Dᴇᴠᴇʟᴏᴘᴇʀ:</b> @TheAlphaBotz\n<b>📢 Cʜᴀɴɴᴇʟ:</b> @Team_Wine</blockquote>")
+    ABOUT_MESSAGE = get_config("ABOUT_MESSAGE", "<blockquote>✨ **Aʙᴏᴜᴛ Tʜɪs Bᴏᴛ** ✨\n\nI ᴀᴍ ᴀ sᴏᴘʜɪsᴛɪᴄᴀᴛᴇᴅ ᴠɪᴅᴇᴏ ᴘʀᴏᴄᴇssɪɴɢ ʙᴏᴛ ʙᴜɪʟᴛ ᴡɪᴛʜ Pʏᴛʜᴏɴ ᴀɴᴅ FFᴍᴘᴇɢ.\n\n<b>🏷 Nᴀᴍᴇ:</b> 𝖵𝖾𝖼𝗇𝖺 𝖤𝗇𝖼𝗈𝖽𝖾𝗋\n<b>🐍 Lᴀɴɢᴜᴀɢᴇ:</b> Python 3.10+\n<b>📚 Lɪʙʀᴀʀʏ:</b> Pyrogram\n<b>👨‍💻 Dᴇᴠᴇʟᴏᴘᴇʀ:</b> @Venca_Bot\n<b>📢 Cʜᴀɴɴᴇʟ:</b> @Weilai_Bots</blockquote>")
     
     # MongoDB Settings
     MONGODB_URL = get_config(
