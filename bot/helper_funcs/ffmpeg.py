@@ -282,12 +282,14 @@ def get_encoding_settings(settings=None):
     if settings:
         v_codec = settings.get('codec', codec[0] if codec else "libsvtav1")
         v_crf = settings.get('crf', crf[0] if crf else "24")
+        v_bitrate = settings.get('video_bitrate')
         v_preset = settings.get('preset', preset[0] if preset else "veryfast")
         v_res = settings.get('resolution', resolution[0] if resolution else "1280x720")
         a_bitrate = settings.get('audio_b', audio_b[0] if audio_b else "128k")
     else:
         v_codec = codec[0] if codec else "libsvtav1"
         v_crf = crf[0] if crf else "24"
+        v_bitrate = None
         v_preset = preset[0] if preset else "veryfast"
         v_res = resolution[0] if resolution else "1280x720"
         a_bitrate = audio_b[0] if audio_b else "128k"
@@ -312,6 +314,7 @@ def get_encoding_settings(settings=None):
     return {
         'codec': v_codec,
         'crf': str(v_crf),
+        'video_bitrate': v_bitrate,
         'preset': v_preset,
         'res_w': res_w,
         'res_h': res_h,
@@ -346,8 +349,14 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     ]
 
     if has_video:
+        cmd.extend(['-c:v', s['codec']])
+        if s.get('video_bitrate'):
+            cmd.extend(['-b:v', str(s['video_bitrate'])])
+        else:
+            cmd.extend(['-crf', s['crf']])
+
         cmd.extend([
-            '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
+            '-preset', s['preset'],
             '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
         ])
     else:
@@ -370,6 +379,70 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         LOGGER.error(f"FFmpeg succeeded but output file is too small ({os.path.getsize(output_file)} bytes): {output_file}")
 
     return output_file if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000 else None
+
+async def convert_video_all(video_file, output_directory, total_time, bot, message, settings=None):
+    """Encode 480p, 720p, and 1080p simultaneously."""
+    if not os.path.exists(video_file):
+        return []
+
+    total_duration = safe_float_convert(total_time)
+    if total_duration == 0:
+        total_duration = get_duration(video_file)
+
+    os.makedirs(output_directory, exist_ok=True)
+    base_name = os.path.splitext(os.path.basename(video_file))[0]
+    s = get_encoding_settings(settings)
+    ext = ".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv"
+
+    outputs = {
+        "480p": os.path.join(output_directory, f"[480p] {base_name}{ext}"),
+        "720p": os.path.join(output_directory, f"[720p] {base_name}{ext}"),
+        "1080p": os.path.join(output_directory, f"[1080p] {base_name}{ext}")
+    }
+
+    # FFmpeg multi-output command
+    cmd = [
+        'ffmpeg', '-hide_banner', '-loglevel', 'warning',
+        '-i', video_file,
+    ]
+
+    # Complex filter for scaling
+    # split=3[v1][v2][v3]; [v1]scale=854:480:force_original_aspect_ratio=decrease,format=yuv420p[out480]; [v2]scale=1280:720:force_original_aspect_ratio=decrease,format=yuv420p[out720]; [v3]scale=1920:1080:force_original_aspect_ratio=decrease,format=yuv420p[out1080]
+    filter_complex = (
+        "split=3[v1][v2][v3];"
+        "[v1]scale=854:480:force_original_aspect_ratio=decrease,format=yuv420p[out480];"
+        "[v2]scale=1280:720:force_original_aspect_ratio=decrease,format=yuv420p[out720];"
+        "[v3]scale=1920:1080:force_original_aspect_ratio=decrease,format=yuv420p[out1080]"
+    )
+    cmd.extend(['-filter_complex', filter_complex])
+
+    # 480p output settings
+    cmd.extend(['-map', '[out480]', '-map', '0:a?', '-map', '0:s?', '-c:v', s['codec']])
+    if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
+    else: cmd.extend(['-crf', s['crf']])
+    cmd.extend(['-preset', s['preset'], '-c:a', 'aac', '-b:a', s['audio_bitrate'], '-c:s', 'copy', '-y', outputs['480p']])
+
+    # 720p output settings
+    cmd.extend(['-map', '[out720]', '-map', '0:a?', '-map', '0:s?', '-c:v', s['codec']])
+    if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
+    else: cmd.extend(['-crf', s['crf']])
+    cmd.extend(['-preset', s['preset'], '-c:a', 'aac', '-b:a', s['audio_bitrate'], '-c:s', 'copy', '-y', outputs['720p']])
+
+    # 1080p output settings
+    cmd.extend(['-map', '[out1080]', '-map', '0:a?', '-map', '0:s?', '-c:v', s['codec']])
+    if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
+    else: cmd.extend(['-crf', s['crf']])
+    cmd.extend(['-preset', s['preset'], '-c:a', 'aac', '-b:a', s['audio_bitrate'], '-c:s', 'copy', '-y', outputs['1080p']])
+
+    success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Multi-Resolution Encoding...")
+
+    result_files = []
+    if success:
+        for res, path in outputs.items():
+            if os.path.exists(path) and os.path.getsize(path) > 1000:
+                result_files.append(path)
+
+    return result_files
 
 async def cut_video(video_file, output_directory, start_time, end_time, bot, message, settings=None):
     """Trim video with optional re-encoding using same settings."""

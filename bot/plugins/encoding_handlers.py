@@ -41,7 +41,5 @@ async def all_handler(client, message):
     media = message.reply_to_message or message
     if not (media.video or media.document):
         return await message.reply_text("❌ " + style_text("Reply to a video or document."))
-    await message.reply_text("⏰ " + style_text("Added all encoding tasks (480p, 720p, 1080p) to queue..."), quote=True)
-    await add_to_queue(media, "480p")
-    await add_to_queue(media, "720p")
-    await add_to_queue(media, "1080p")
+    await message.reply_text("⏰ " + style_text("Added all-in-one multi-resolution task (480p, 720p, 1080p) to queue..."), quote=True)
+    await add_to_queue(media, "all_resolutions")

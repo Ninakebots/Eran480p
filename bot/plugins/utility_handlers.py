@@ -75,39 +75,6 @@ async def ping_handler(client, message):
     latency = (end_time - start_time) * 1000
     await sent.edit_text(f"🏓 **Pong!**\nLatency: `{latency:.2f} ms`")
 
-@app.on_message(filters.incoming & filters.command([Command.UPDATE, f"{Command.UPDATE}@{BOT_USERNAME}"]))
-async def update_handler(client, message):
-    if message.from_user.id not in AUTH_USERS:
-        return await message.reply_text("🔒 Admin Only")
-
-    args = message.text.split()
-    sent = await message.reply_text("🔄 **Checking for updates...**")
-    try:
-        if len(args) == 3:
-            remote = args[1]
-            branch = args[2]
-            subprocess.check_output(['git', 'fetch', remote, branch])
-        else:
-            # Default upstream: https://github.com/Ninakebots/Eran480p (main branch)
-            subprocess.check_output(['git', 'fetch', 'https://github.com/Ninakebots/Eran480p', 'main'])
-
-        curr_head = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
-        new_head = subprocess.check_output(['git', 'rev-parse', 'FETCH_HEAD']).decode().strip()
-
-        if curr_head == new_head:
-            await sent.edit_text("✅ **Bot is already up to date.**")
-            return
-
-        out = subprocess.check_output(['git', 'reset', '--hard', 'FETCH_HEAD']).decode()
-
-        if 'Already up to date.' in out:
-            await sent.edit_text("✅ **Bot is already up to date.**")
-        else:
-            await sent.edit_text(f"✅ **Updated successfully!**\n\n`{out}`\n\nRestarting...")
-            os.execl(sys.executable, sys.executable, "-m", "bot")
-    except Exception as e:
-        await sent.edit_text(f"❌ **Update failed.**\n\nError: `{e}`")
-
 @app.on_message(filters.incoming & filters.command([Command.SETUPLOAD, f"{Command.SETUPLOAD}@{BOT_USERNAME}"]) & is_auth)
 async def setupload_handler(client, message):
     args = message.text.split(" ")
