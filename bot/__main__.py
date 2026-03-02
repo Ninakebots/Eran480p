@@ -23,6 +23,7 @@ from bot.plugins.media_tools import *
 from bot.plugins.utility_handlers import *
 from bot.plugins.auth_handlers import *
 from bot.plugins.user_settings import *
+from bot.plugins.update import *
 from bot.plugins.call_back_button_handler import button as admin_button_handler
 from bot.commands import Command
 
@@ -258,9 +259,6 @@ if __name__ == "__main__":
         up_dest = user_data.get("upload_destination", "telegram")
         await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}\n➥ Upload Destination: {up_dest.capitalize()}")
 
-    @app.on_message(filters.incoming & filters.command(["stop", f"stop@{BOT_USERNAME}"]))
-    async def stop_handler(app, message):
-        await on_task_complete()
 
     @app.on_message(filters.incoming & filters.command(["help", f"help@{BOT_USERNAME}"]) & is_auth)
     async def help_handler(app, message):
