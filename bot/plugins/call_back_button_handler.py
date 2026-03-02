@@ -1,4 +1,4 @@
-from bot.helper_funcs.utils import on_task_complete, add_task, is_auth
+from bot.helper_funcs.utils import is_auth
 from bot.helper_funcs.database import db
 from bot.localisation import Localisation
 from bot import AUTH_USERS, DOWNLOAD_LOCATION, data, pid_list, subtitle_sessions
