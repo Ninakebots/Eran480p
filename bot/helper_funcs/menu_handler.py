@@ -2,35 +2,6 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.helper_funcs.database import get_user_data
 
 class MenuHandler:
-    async def main_menu(self, user_id, username, context=""):
-        text = f"⚙️ **User Settings for** `{username}`\n\nSelect a category to customize your experience:"
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎬 Resolution", callback_data=f"set_res{context}")],
-            [InlineKeyboardButton("🛠 Media Tools", callback_data=f"util_menu{context}")],
-            [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
-        ])
-        return text, keyboard
-
-    async def utility_menu(self, user_id, context=""):
-        text = (
-            "🛠 **Media Tools**\n\n"
-            "Select a tool to process your media. If you haven't already, reply to a video with `/us` to use these tools."
-        )
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎧 Extract Audio", callback_data=f"ext_aud{context}"),
-             InlineKeyboardButton("🔇 Rem Audio", callback_data=f"rem_aud{context}")],
-            [InlineKeyboardButton("🎵 Add Audio", callback_data=f"add_aud{context}"),
-             InlineKeyboardButton("✂️ Trim", callback_data=f"trim_vid{context}")],
-            [InlineKeyboardButton("📝 SoftSub", callback_data=f"soft_sub{context}"),
-             InlineKeyboardButton("🖼 HardSub", callback_data=f"hard_sub{context}")],
-            [InlineKeyboardButton("🗑 Rem Sub", callback_data=f"rem_sub{context}"),
-             InlineKeyboardButton("📊 MediaInfo", callback_data=f"m_info{context}")],
-            [InlineKeyboardButton("🖼 Save Thumb", callback_data=f"sav_thumb{context}"),
-             InlineKeyboardButton("🗑 Del Thumb", callback_data=f"del_thumb{context}")],
-            [InlineKeyboardButton("⬅️ Back", callback_data=f"main_menu{context}")]
-        ])
-        return text, keyboard
-
     async def settings_menu(self, user_id, context=""):
         user_settings = await get_user_data(user_id)
 
@@ -78,7 +49,11 @@ class MenuHandler:
             if i + 1 < len(options):
                 row.append(InlineKeyboardButton(options[i+1], callback_data=f"upd_res_{options[i+1]}{context}"))
             buttons.append(row)
-        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data=f"main_menu{context}")])
+
+        if not context:
+            buttons.append([InlineKeyboardButton("⬅️ Back", callback_data="back_to_media")])
+        else:
+            buttons.append([InlineKeyboardButton("❌ Close", callback_data="close_menu")])
         return text, InlineKeyboardMarkup(buttons)
 
     async def set_crf_menu(self, user_id, context=""):

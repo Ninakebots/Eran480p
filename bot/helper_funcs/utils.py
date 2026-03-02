@@ -164,8 +164,15 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
 
     user_id = update.from_user.id if update.from_user else update.chat.id
     user_settings = await get_user_data(user_id)
-    upload_dest = user_settings.get("upload_destination", "telegram")
+    upload_dest = user_settings.get("upload_destination", "chat")
     upload_as = user_settings.get("upload_as", "video")
+
+    # Determine destination chat
+    dest_chat = update.chat.id
+    if upload_dest == "pm":
+        dest_chat = user_id
+    elif isinstance(upload_dest, int):
+        dest_chat = upload_dest
 
     u_start = time.time()
     if not sent_message:
@@ -220,12 +227,12 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
                 upload_dest = "telegram" # Fallback to telegram
                 await sent_message.edit_text("⚠️ Gofile upload failed. Falling back to Telegram...")
 
-        if upload_dest == "telegram":
+        if upload_dest != "gofile":
             ext = output_path.split('.')[-1].lower()
             common_args = {
-                'chat_id': update.chat.id,
+                'chat_id': dest_chat,
                 'caption': caption.replace('{}', "Calculating...", 1),
-                'reply_to_message_id': update.id,
+                'reply_to_message_id': update.id if dest_chat == update.chat.id else None,
                 'progress': progress_for_pyrogram,
                 'progress_args': (bot, Localisation.UPLOAD_START, sent_message, u_start)
             }
