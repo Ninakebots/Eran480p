@@ -202,118 +202,62 @@ async def handle_all_resolutions_task(update, options):
         LOGGER.error(f"Error in handle_all_resolutions_task: {e}")
         await sent_message.edit_text(f"❌ Error: {e}")
 
-async def handle_extract_audio_task(message, options):
-    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰᴏʀ ᴀᴜᴅɪᴏ ᴇxᴛʀᴀᴄᴛɪᴏɴ...📥", reply_to_message_id=message.id)
-    try:
-        video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
-        if not video_path:
-            return await sent_message.edit_text("❌ Download failed.")
-
-        await sent_message.edit_text("🎧 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈...⚙️")
-        from bot.helper_funcs.ffmpeg import extract_audio
-        audio_path = await extract_audio(video_path, DOWNLOAD_LOCATION)
-
-        if audio_path:
-            await output_handler(
-                bot=bot,
-                update=message,
-                output_path=audio_path,
-                input_path=video_path,
-                sent_message=sent_message
-            )
-        else:
-            await sent_message.edit_text("❌ Audio extraction failed.")
-            if video_path and os.path.exists(video_path): os.remove(video_path)
-    except Exception as e:
-        await sent_message.edit_text(f"❌ Error: {e}")
-
-async def handle_extract_sub_task(message, options):
-    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰᴏʀ ꜱᴜʙᴛɪᴛʟᴇ ᴇxᴛʀᴀᴄᴛɪᴏɴ...📥", reply_to_message_id=message.id)
-    try:
-        video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
-        if not video_path:
-            return await sent_message.edit_text("❌ Download failed.")
-
-        await sent_message.edit_text("📝 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌...⚙️")
-        from bot.helper_funcs.ffmpeg import extract_subtitles
-        sub_path = await extract_subtitles(video_path, DOWNLOAD_LOCATION)
-
-        if sub_path:
-            await output_handler(
-                bot=bot,
-                update=message,
-                output_path=sub_path,
-                input_path=video_path,
-                sent_message=sent_message
-            )
-        else:
-            await sent_message.edit_text("❌ Subtitle extraction failed. Make sure the video has subtitle streams.")
-            if video_path and os.path.exists(video_path): os.remove(video_path)
-    except Exception as e:
-        await sent_message.edit_text(f"❌ Error: {e}")
-
-async def handle_add_audio_task(message, options):
-    audio_message = options.get('audio_message')
-    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰɪʟᴇꜱ...📥", reply_to_message_id=message.id)
-    try:
-        video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗏𝗂𝖽𝖾𝗈...📥", sent_message, time.time()))
-        audio_path = await bot.download_media(message=audio_message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖺𝗎𝖽𝗂𝗈...📥", sent_message, time.time()))
-
-        if not video_path or not audio_path:
-            return await sent_message.edit_text("❌ Download failed.")
-
-        await sent_message.edit_text("🎵 A𝖽𝖽𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈...⚙️")
-        from bot.helper_funcs.ffmpeg import add_audio
-        output_path = await add_audio(video_path, audio_path, DOWNLOAD_LOCATION)
-
-        if output_path:
-            await output_handler(
-                bot=bot,
-                update=message,
-                output_path=output_path,
-                input_path=video_path,
-                sent_message=sent_message
-            )
-            if audio_path and os.path.exists(audio_path): os.remove(audio_path)
-        else:
-            await sent_message.edit_text("❌ Adding audio failed.")
-            for p in [video_path, audio_path]:
-                if p and os.path.exists(p): os.remove(p)
-    except Exception as e:
-        await sent_message.edit_text(f"❌ Error: {e}")
-
-async def handle_remove_audio_task(message, options):
+async def _process_media_handler(message, description, processing_func, *func_args, **func_kwargs):
+    """Centralized helper for media processing tasks."""
     sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", reply_to_message_id=message.id)
     try:
         video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
         if not video_path: return await sent_message.edit_text("❌ Download failed.")
 
-        await sent_message.edit_text("🔇 R𝖾𝗆𝗈𝗏𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈...⚙️")
-        from bot.helper_funcs.ffmpeg import remove_audio
-        output_path = await remove_audio(video_path, DOWNLOAD_LOCATION)
+        await sent_message.edit_text(f"{description}...⚙️")
+        output_path = await processing_func(video_path, DOWNLOAD_LOCATION, *func_args, **func_kwargs)
 
         if output_path:
-            await output_handler(
-                bot=bot,
-                update=message,
-                output_path=output_path,
-                input_path=video_path,
-                sent_message=sent_message
-            )
+            await output_handler(bot=bot, update=message, output_path=output_path, input_path=video_path, sent_message=sent_message)
         else:
-            await sent_message.edit_text("❌ Removing audio failed.")
+            await sent_message.edit_text("❌ Processing failed.")
             if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
+        LOGGER.error(f"Error in _process_media_handler: {e}")
         await sent_message.edit_text(f"❌ Error: {e}")
 
-async def handle_subtitles_task(message, options, sub_type):
-    sub_message = options.get('sub_message')
+async def handle_extract_audio_task(message, options):
+    from bot.helper_funcs.ffmpeg import extract_audio
+    await _process_media_handler(message, "🎧 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈", extract_audio)
+
+async def handle_extract_sub_task(message, options):
+    from bot.helper_funcs.ffmpeg import extract_subtitles
+    await _process_media_handler(message, "📝 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌", extract_subtitles)
+
+async def handle_add_audio_task(message, options):
+    audio_msg = options.get('audio_message')
     sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰɪʟᴇꜱ...📥", reply_to_message_id=message.id)
     try:
-        video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗏𝗂𝖽𝖾𝗈...📥", sent_message, time.time()))
-        sub_path = await bot.download_media(message=sub_message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗌𝗎𝖻𝗌...📥", sent_message, time.time()))
+        v_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗏𝗂𝖽𝖾𝗈...📥", sent_message, time.time()))
+        a_path = await bot.download_media(message=audio_msg, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖺𝗎𝖽𝗂𝗈...📥", sent_message, time.time()))
+        if not v_path or not a_path: return await sent_message.edit_text("❌ Download failed.")
 
-        if not video_path or not sub_path: return await sent_message.edit_text("❌ Download failed.")
+        await sent_message.edit_text("🎵 A𝖽𝖽𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈...⚙️")
+        from bot.helper_funcs.ffmpeg import add_audio
+        output_path = await add_audio(v_path, a_path, DOWNLOAD_LOCATION)
+
+        if output_path:
+            await output_handler(bot=bot, update=message, output_path=output_path, input_path=v_path, sent_message=sent_message)
+        else: await sent_message.edit_text("❌ Adding audio failed.")
+        if a_path and os.path.exists(a_path): os.remove(a_path)
+    except Exception as e: await sent_message.edit_text(f"❌ Error: {e}")
+
+async def handle_remove_audio_task(message, options):
+    from bot.helper_funcs.ffmpeg import remove_audio
+    await _process_media_handler(message, "🔇 R𝖾𝗆𝗈𝗏𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈", remove_audio)
+
+async def handle_subtitles_task(message, options, sub_type):
+    sub_msg = options.get('sub_message')
+    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰɪʟᴇꜱ...📥", reply_to_message_id=message.id)
+    try:
+        v_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗏𝗂𝖽𝖾𝗈...📥", sent_message, time.time()))
+        s_path = await bot.download_media(message=sub_msg, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝗌𝗎𝖻𝗌...📥", sent_message, time.time()))
+        if not v_path or not s_path: return await sent_message.edit_text("❌ Download failed.")
 
         user_id = message.from_user.id if message.from_user else message.chat.id
         from bot.helper_funcs.database import get_user_data
@@ -321,79 +265,42 @@ async def handle_subtitles_task(message, options, sub_type):
 
         await sent_message.edit_text(f"📝 A𝖽𝖽𝗂𝗇𝗀 {sub_type} 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌...⚙️")
         from bot.helper_funcs.ffmpeg import add_soft_subtitles, add_hard_subtitles
-        if sub_type == "soft":
-            output_path = await add_soft_subtitles(video_path, sub_path, DOWNLOAD_LOCATION)
-        else:
-            output_path = await add_hard_subtitles(video_path, sub_path, DOWNLOAD_LOCATION, bot, sent_message, settings=user_settings)
+        if sub_type == "soft": output_path = await add_soft_subtitles(v_path, s_path, DOWNLOAD_LOCATION)
+        else: output_path = await add_hard_subtitles(v_path, s_path, DOWNLOAD_LOCATION, bot, sent_message, settings=user_settings)
 
         if output_path:
-            await output_handler(
-                bot=bot,
-                update=message,
-                output_path=output_path,
-                input_path=video_path,
-                sent_message=sent_message
-            )
-            if sub_path and os.path.exists(sub_path): os.remove(sub_path)
-        else:
-            await sent_message.edit_text(f"❌ Adding {sub_type} subtitles failed.")
-            for p in [video_path, sub_path]:
-                if p and os.path.exists(p): os.remove(p)
-    except Exception as e:
-        await sent_message.edit_text(f"❌ Error: {e}")
+            await output_handler(bot=bot, update=message, output_path=output_path, input_path=v_path, sent_message=sent_message)
+        else: await sent_message.edit_text(f"❌ Adding {sub_type} subtitles failed.")
+        if s_path and os.path.exists(s_path): os.remove(s_path)
+    except Exception as e: await sent_message.edit_text(f"❌ Error: {e}")
 
 async def handle_remove_subtitles_task(message, options):
-    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", reply_to_message_id=message.id)
-    try:
-        video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
-        if not video_path: return await sent_message.edit_text("❌ Download failed.")
-
-        await sent_message.edit_text("✂️ R𝖾𝗆𝗈𝗏𝗂𝗇𝗀 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌...⚙️")
-        from bot.helper_funcs.ffmpeg import remove_subtitles
-        output_path = await remove_subtitles(video_path, DOWNLOAD_LOCATION)
-
-        if output_path:
-            await output_handler(
-                bot=bot,
-                update=message,
-                output_path=output_path,
-                input_path=video_path,
-                sent_message=sent_message
-            )
-        else:
-            await sent_message.edit_text("❌ Removing subtitles failed.")
-            if video_path and os.path.exists(video_path): os.remove(video_path)
-    except Exception as e:
-        await sent_message.edit_text(f"❌ Error: {e}")
+    from bot.helper_funcs.ffmpeg import remove_subtitles
+    await _process_media_handler(message, "✂️ R𝖾𝗆𝗈𝗏𝗂𝗇𝗀 𝗌𝗎𝖻𝗍𝗂𝗍ʟ𝖾𝗌", remove_subtitles)
 
 async def handle_trim_task(message, options):
-    start_time = options.get('start_time')
-    end_time = options.get('end_time')
+    start_t, end_t = options.get('start_time'), options.get('end_time')
+    user_id = message.from_user.id if message.from_user else message.chat.id
+    from bot.helper_funcs.database import get_user_data
+    user_settings = await get_user_data(user_id)
+    from bot.helper_funcs.ffmpeg import cut_video
+
+    # Explicit implementation for trim to ensure progress updates are passed correctly
     sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", reply_to_message_id=message.id)
     try:
         video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
         if not video_path: return await sent_message.edit_text("❌ Download failed.")
 
-        user_id = message.from_user.id if message.from_user else message.chat.id
-        from bot.helper_funcs.database import get_user_data
-        user_settings = await get_user_data(user_id)
-
-        await sent_message.edit_text(f"✂️ T𝗋𝗂𝗆𝗆𝗂𝗇𝗀 𝗏𝗂𝖽𝖾𝗈 ({start_time} - {end_time})...⚙️")
-        from bot.helper_funcs.ffmpeg import cut_video
-        output_path = await cut_video(video_path, DOWNLOAD_LOCATION, start_time, end_time, bot, sent_message, settings=user_settings)
+        await sent_message.edit_text(f"✂️ T𝗋𝗂𝗆𝗆𝗂𝗇𝗀 𝗏𝗂𝖽𝖾𝗈 ({start_t} - {end_t})...⚙️")
+        output_path = await cut_video(video_path, DOWNLOAD_LOCATION, start_t, end_t, bot, sent_message, settings=user_settings)
 
         if output_path:
-            await output_handler(
-                bot=bot,
-                update=message,
-                output_path=output_path,
-                input_path=video_path,
-                sent_message=sent_message
-            )
+            await output_handler(bot=bot, update=message, output_path=output_path, input_path=video_path, sent_message=sent_message)
         else:
             await sent_message.edit_text("❌ Trimming failed.")
             if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
+        LOGGER.error(f"Error in handle_trim_task: {e}")
         await sent_message.edit_text(f"❌ Error: {e}")
 
 async def handle_mediainfo_task(message, options):

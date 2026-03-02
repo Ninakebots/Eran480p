@@ -24,48 +24,47 @@ def checkKey(dict, key):
         return False
 
 def hbs(size):
-    if not size:
-        return "0 B"
+    if not size: return "0 B"
     for unit in ["B", "KB", "MB", "GB", "TB", "PB"]:
-        if size < 1024.0:
-            break
+        if size < 1024.0: break
         size /= 1024.0
     return f"{size:.2f} {unit}"
 
-async def on_task_complete():
-    try:
-        if len(data) > 0:
-            del data[0]
-        if len(data) > 0:
-            await add_task(data[0])
-    except Exception as e:
-        LOGGER.error(f"Error in on_task_complete: {e}")
+# Global task queue
+TASK_QUEUE = asyncio.Queue()
 
-async def add_task(task_info):
-    try:
-        # Safer cleanup of downloads directory
-        from bot import DOWNLOAD_LOCATION
-        os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
-        if os.path.exists(DOWNLOAD_LOCATION):
+async def task_worker():
+    """Sequential task worker to replace recursive add_task."""
+    LOGGER.info("Starting Task Worker...")
+    while True:
+        task_info = await TASK_QUEUE.get()
+        try:
+            # Safer cleanup of downloads directory
+            from bot import DOWNLOAD_LOCATION
+            os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
             for file in os.listdir(DOWNLOAD_LOCATION):
                 file_path = os.path.join(DOWNLOAD_LOCATION, file)
                 try:
-                    if os.path.isfile(file_path) or os.path.islink(file_path):
-                        os.unlink(file_path)
-                    elif os.path.isdir(file_path):
-                        shutil.rmtree(file_path)
-                except Exception as e:
-                    LOGGER.warning(f"Failed to delete {file_path}: {e}")
+                    if os.path.isfile(file_path) or os.path.islink(file_path): os.unlink(file_path)
+                    elif os.path.isdir(file_path): shutil.rmtree(file_path)
+                except Exception as e: LOGGER.warning(f"Failed to delete {file_path}: {e}")
 
-        # We'll import the actual handler here to avoid circular imports
-        from bot.helper_funcs.task_handler import execute_task
-        await execute_task(task_info)
-    except Exception as e:
-        import traceback
-        LOGGER.error(f"Error in add_task: {e}")
-        LOGGER.error(f"Full traceback: {traceback.format_exc()}")
-    finally:
-        await on_task_complete()
+            from bot.helper_funcs.task_handler import execute_task
+            await execute_task(task_info)
+        except Exception as e:
+            import traceback
+            LOGGER.error(f"Error in task_worker: {e}\n{traceback.format_exc()}")
+        finally:
+            # Mark current task as done in the 'data' list for status monitoring
+            if data and data[0]['id'] == task_info['id']:
+                data.pop(0)
+            TASK_QUEUE.task_done()
+
+# Start the worker task when the module is imported
+# This requires an existing event loop, usually handled in __main__.py
+# but we can provide a startup function.
+def start_task_worker():
+    asyncio.create_task(task_worker())
 
 async def add_to_queue(message: Message, task_type: str, options: dict = None):
     task_info = {
@@ -75,9 +74,7 @@ async def add_to_queue(message: Message, task_type: str, options: dict = None):
         'id': time.time_ns()
     }
     data.append(task_info)
-    if len(data) == 1:
-        # If this is the only task, start it
-        await add_task(task_info)
+    await TASK_QUEUE.put(task_info)
     return task_info['id']
 
 async def remove_from_queue(message_id: int):
