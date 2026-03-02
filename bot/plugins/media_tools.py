@@ -65,11 +65,6 @@ async def trim_cmd(client, message):
     await add_to_queue(reply, "trim", options={'start_time': start_time, 'end_time': end_time})
     await message.reply_text(f"⏰ Added trim task ({start_time} - {end_time}) to queue.")
 
-@app.on_message(filters.incoming & filters.command([Command.COMPOSE, "Compose", f"{Command.COMPOSE}@{BOT_USERNAME}"]) & is_auth)
-async def compose_handler(client, message):
-    # Alias for merge for now as it's the most common "composition"
-    await merge_handler(client, message)
-
 @app.on_message(filters.incoming & filters.command([Command.MEDIAINFO, f"{Command.MEDIAINFO}@{BOT_USERNAME}"]) & is_auth)
 async def mediainfo_handler(client, message):
     if not message.from_user:

@@ -244,8 +244,12 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
             success = True
             LOGGER.info(f"FFmpeg process completed successfully (PID: {process.pid})")
         else:
-            error_msg = stderr.decode() if stderr else "Unknown error"
-            LOGGER.error(f"FFmpeg failed (PID: {process.pid}, Code: {process.returncode}): {error_msg}")
+            stderr_out = stderr.decode().strip() if stderr else "No error output"
+            stdout_out = stdout.decode().strip() if stdout else "No standard output"
+
+            LOGGER.error(f"FFmpeg failed (PID: {process.pid}, Code: {process.returncode})")
+            LOGGER.error(f"STDOUT: {stdout_out}")
+            LOGGER.error(f"STDERR: {stderr_out}")
             # Log the command that failed for easier debugging
             LOGGER.debug(f"Failed command: {' '.join(cmd)}")
             success = False
@@ -326,9 +330,12 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     os.makedirs(output_directory, exist_ok=True)
 
     base_name = os.path.splitext(os.path.basename(video_file))[0]
-    output_file = os.path.join(output_directory, f"[Encoded] {base_name}.mkv")
-
     s = get_encoding_settings(settings)
+
+    # Determine extension based on codec
+    ext = ".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv"
+    output_file = os.path.join(output_directory, f"[Encoded] {base_name}{ext}")
+
     has_video = validate_video_file(video_file)
     LOGGER.info(f"File: {video_file}, has_video: {has_video}, settings: {s}")
 
@@ -341,7 +348,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     if has_video:
         cmd.extend([
             '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
-            '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p10le",
+            '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
         ])
     else:
         LOGGER.warning(f"No video stream detected or ffprobe failed for {video_file}. Attempting to copy video stream.")
@@ -388,7 +395,7 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
         if has_video:
             cmd.extend([
                 '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
-                '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p10le",
+                '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p",
             ])
         else:
             cmd.extend(['-c:v', 'copy'])
@@ -512,7 +519,7 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
 
     cmd = [
         'ffmpeg', '-i', video_file,
-        '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format=yuv420p10le",
+        '-vf', f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format=yuv420p",
         '-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset'],
         '-c:a', 'aac', '-b:a', s['audio_bitrate'],
         '-map', '0:v:0?', '-map', '0:a?', '-y', output_file

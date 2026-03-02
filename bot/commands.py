@@ -36,4 +36,3 @@ class Command:
     SETMEDIA = "setmedia"
     SAVETHUMB = "savethumb"
     DELTHUMB = "delthumb"
-    COMPOSE = "compose"
