@@ -1,9 +1,59 @@
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from bot.helper_funcs.database import get_user_data
+from bot.helper_funcs.database import get_user_data, get_global_settings
 
 class MenuHandler:
+    async def global_settings_menu(self, res_key="480p", is_admin=False):
+        settings = await get_global_settings(res_key)
+
+        codec = settings.get('codec', 'libx264')
+        audio_codec = settings.get('audio_codec', 'libopus')
+        crf = settings.get('crf', '30')
+        res = settings.get('resolution', '640x360')
+        preset = settings.get('preset', 'superfast')
+        audio_b = settings.get('audio_b', '48k')
+        video_b = settings.get('video_bitrate', 'Auto/None')
+        bits = settings.get('bits', '8 bits')
+        watermark = settings.get('watermark', 'None')
+        wm_size = settings.get('wm_size', '0')
+
+        default_str = " (Default)" if res_key == "480p" else ""
+
+        text = (
+            f"Tʜᴇ Cᴜʀʀᴇɴᴛ Sᴇᴛᴛɪɴɢꜱ ᴡɪʟʟ ʙᴇ Aᴅᴅᴇᴅ Yᴏᴜʀ Vɪᴅᴇᴏ Fɪʟᴇ ({res_key}{default_str}):\n"
+            f"Video Codec : {codec} \n"
+            f"Audio Codec : {audio_codec} \n"
+            f"Crf : {crf} \n"
+            f"Resolution : {res} \n"
+            f"Preset : {preset} \n"
+            f"Audio Bitrate : {audio_b} \n"
+            f"Video Bitrate : {video_b} \n"
+            f"Bits : {bits} \n"
+            f"Watermark : {watermark}\n"
+            f"WM Size : {wm_size} \n"
+            "The Ability to Change Settings is Only for Admin"
+        )
+
+        buttons = [
+            [
+                InlineKeyboardButton("480p", callback_data="view_global_480p"),
+                InlineKeyboardButton("720p", callback_data="view_global_720p"),
+                InlineKeyboardButton("1080p", callback_data="view_global_1080p")
+            ]
+        ]
+
+        if is_admin:
+            buttons.append([InlineKeyboardButton("📝 Change Settings", callback_data=f"settings_menu|global|{res_key}")])
+
+        buttons.append([InlineKeyboardButton("❌ Close", callback_data="close_menu")])
+
+        return text, InlineKeyboardMarkup(buttons)
+
     async def settings_menu(self, user_id, context=""):
-        user_settings = await get_user_data(user_id)
+        if "|global|" in context:
+            res_key = context.split('|')[-1]
+            user_settings = await get_global_settings(res_key)
+        else:
+            user_settings = await get_user_data(user_id)
 
         codec = user_settings.get('codec', 'libsvtav1')
         crf = user_settings.get('crf', '24')

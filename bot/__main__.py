@@ -207,7 +207,7 @@ if __name__ == "__main__":
                 except:
                     pass
 
-    @app.on_message(filters.command([Command.SETUPLOAD, f"{Command.SETUPLOAD}@{BOT_USERNAME}"]) & is_auth)
+    @app.on_message(filters.command([Command.SETUPLOAD, f"{Command.SETUPLOAD}@{BOT_USERNAME}"]) & filters.create(lambda _, __, m: (m.from_user.id if m.from_user else 0) in AUTH_USERS))
     async def setupload_command_handler(client: Client, message: Message):
         user_id = message.from_user.id
         user_data = await get_user_data(user_id)
@@ -253,11 +253,12 @@ if __name__ == "__main__":
 
 
     @app.on_message(filters.incoming & filters.command(["settings", f"settings@{BOT_USERNAME}"]) & is_auth)
-    async def settings(app, message):
-        user_id = message.from_user.id if message.from_user else message.chat.id
-        user_data = await get_user_data(user_id)
-        up_dest = user_data.get("upload_destination", "telegram")
-        await message.reply_text(f"⚙️ Current Settings:\n\n➥ Codec: {codec[0]} \n➥ Crf: {crf[0]} \n➥ Resolution: {resolution[0]} \n➥ Preset: {preset[0]} \n➥ Audio Bitrates: {audio_b[0]}\n➥ Upload Destination: {up_dest.capitalize()}")
+    async def settings(client, message):
+        user_id = message.from_user.id if message.from_user else 0
+        is_admin = user_id in AUTH_USERS and user_id > 0
+        from bot.helper_funcs.menu_handler import menu_handler
+        text, keyboard = await menu_handler.global_settings_menu("480p", is_admin)
+        await message.reply_text(text, reply_markup=keyboard)
 
 
     @app.on_message(filters.incoming & filters.command(["help", f"help@{BOT_USERNAME}"]) & is_auth)

@@ -14,13 +14,25 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@app.on_message(filters.command("settings") & is_personal_auth)
+@app.on_message(filters.command("settings") & is_auth)
 async def personal_settings(client, message: Message):
     if not message.from_user:
         return
     user_id = message.from_user.id
-    text, keyboard = await menu_handler.settings_menu(user_id)
+    is_admin = user_id in AUTH_USERS and user_id > 0
+    text, keyboard = await menu_handler.global_settings_menu("480p", is_admin)
     await message.reply(text, reply_markup=keyboard)
+
+
+@app.on_callback_query(filters.regex(r"^view_global_(480p|720p|1080p)"))
+async def view_global_settings(client, callback_query: CallbackQuery):
+    if not callback_query.from_user:
+        return
+    user_id = callback_query.from_user.id
+    res_key = callback_query.data.split('_')[-1]
+    is_admin = user_id in AUTH_USERS and user_id > 0
+    text, keyboard = await menu_handler.global_settings_menu(res_key, is_admin)
+    await callback_query.message.edit_text(text, reply_markup=keyboard)
 
 
 async def wait_for_user_input(client: Client, user_id: int, chat_id: int, timeout: int = 60):
@@ -70,8 +82,14 @@ async def handle_private_message(client, message: Message):
 def parse_cb_data(data):
     parts = data.split('|')
     base = parts[0]
-    context = f"|{parts[1]}" if len(parts) > 1 else ""
-    reply_to_id = int(parts[1]) if len(parts) > 1 else None
+    context = "|".join(parts[1:])
+    if context:
+        context = "|" + context
+
+    reply_to_id = None
+    if len(parts) > 1 and parts[1].isdigit():
+        reply_to_id = int(parts[1])
+
     return base, context, reply_to_id
 
 # --- Menu Handlers ---
@@ -88,7 +106,7 @@ async def settings_menu_handler(client, callback_query: CallbackQuery):
 
     # Check for personal auth
     if user_id not in AUTH_USERS or user_id <= 0:
-        return await callback_query.answer("❌ You are not authorized to access personal settings.", show_alert=True)
+        return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
 
     _, context, _ = parse_cb_data(callback_query.data)
     text, keyboard = await menu_handler.settings_menu(user_id, context)
@@ -103,10 +121,9 @@ async def set_encoding_setting_handler(client, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
     base, context, _ = parse_cb_data(callback_query.data)
 
-    if base != "set_res":
-        # Check for personal auth
-        if user_id not in AUTH_USERS or user_id <= 0:
-            return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
+    # Check for personal auth
+    if user_id not in AUTH_USERS or user_id <= 0:
+        return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
 
     if base == "set_codec":
         text, keyboard = await menu_handler.set_codec_menu(user_id, context)
@@ -133,10 +150,9 @@ async def update_encoding_setting_handler(client, callback_query: CallbackQuery)
     key_short = parts[1]
     value = parts[2]
 
-    if key_short != "res":
-         # Check for personal auth
-        if user_id not in AUTH_USERS or user_id <= 0:
-            return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
+    # Check for personal auth
+    if user_id not in AUTH_USERS or user_id <= 0:
+        return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
 
     key_map = {
         'codec': 'codec',
@@ -148,27 +164,35 @@ async def update_encoding_setting_handler(client, callback_query: CallbackQuery)
     key = key_map.get(key_short)
 
     if key:
-        if key == "resolution" and value == "All":
-            await update_user_data(user_id, {key: value})
-            if reply_to_id:
-                # Triggers 3 encoding tasks immediately
-                from bot.helper_funcs.utils import add_to_queue
-                try:
-                    media_message = await client.get_messages(callback_query.message.chat.id, reply_to_id)
-                    await add_to_queue(media_message, "480p")
-                    await add_to_queue(media_message, "720p")
-                    await add_to_queue(media_message, "1080p")
-                    await callback_query.answer("⏰ Default set to 'All' and added all 3 tasks to queue!", show_alert=True)
-                except Exception as e:
-                    await callback_query.answer(f"❌ Error queuing tasks: {e}", show_alert=True)
-            else:
-                await callback_query.answer("✅ 'All' selected as default resolution.")
+        if "|global|" in context:
+            res_key = context.split('|')[-1]
+            from bot.helper_funcs.database import get_global_settings, update_global_settings
+            g = await get_global_settings(res_key)
+            g[key] = value
+            await update_global_settings(res_key, g)
+            await callback_query.answer(f"✅ Global {res_key} {key} updated to {value}")
         else:
-            await update_user_data(user_id, {key: value})
-            await callback_query.answer(f"✅ {key} updated to {value}")
+            if key == "resolution" and value == "All":
+                await update_user_data(user_id, {key: value})
+                if reply_to_id:
+                    # Triggers 3 encoding tasks immediately
+                    from bot.helper_funcs.utils import add_to_queue
+                    try:
+                        media_message = await client.get_messages(callback_query.message.chat.id, reply_to_id)
+                        await add_to_queue(media_message, "480p")
+                        await add_to_queue(media_message, "720p")
+                        await add_to_queue(media_message, "1080p")
+                        await callback_query.answer("⏰ Default set to 'All' and added all 3 tasks to queue!", show_alert=True)
+                    except Exception as e:
+                        await callback_query.answer(f"❌ Error queuing tasks: {e}", show_alert=True)
+                else:
+                    await callback_query.answer("✅ 'All' selected as default resolution.")
+            else:
+                await update_user_data(user_id, {key: value})
+                await callback_query.answer(f"✅ {key} updated to {value}")
 
     # Route back to appropriate menu
-    if key_short == "res":
+    if key_short == "res" and "global" not in context.split('|'):
         # Route back to media settings if context is empty (general settings)
         if not context:
             from bot.plugins.utility_handlers import set_media_callback_handler
