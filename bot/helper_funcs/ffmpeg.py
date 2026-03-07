@@ -273,7 +273,7 @@ async def get_encoding_settings(settings=None, res_key=None):
         v_bitrate = None
 
     v_preset = g.get('preset', 'veryfast')
-    v_res = str(g.get('resolution', '640x360')).lower().replace('p', '')
+    v_res = str(g.get('resolution', '854x480')).lower().replace('p', '')
     a_bitrate = g.get('audio_b', '48k')
 
     # Normalize dimensions from resolution string like "640x360"
@@ -604,14 +604,30 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     s = await get_encoding_settings(settings)
     escaped_path = escape_ffmpeg_path(subtitle_file)
 
+    # If user wants to keep quality "same as old one", we should use lower CRF
+    # and potentially keep original resolution if not explicitly scaling.
+    v_crf = s['crf']
+    if safe_int_convert(v_crf) > 18:
+        v_crf = "18" # High quality default for hard-subbing
+
+    # Scaling logic - if resolution is not specifically set by user, we can skip it
+    # to maintain "same as old one" resolution.
+    video_filter = f"subtitles='{escaped_path}':force_style='FontSize=16',format={get_pix_fmt(s)}"
+
+    # If settings came from a specific command (like /480p), s['res_h'] will be "480"
+    # If it's a generic add_hard_sub, we might want to keep original.
+    # We'll check if res_h is significantly different from a likely "auto" value.
+    if s['res_h'] not in ["-2", "None", None, "0"]:
+         video_filter = f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease," + video_filter
+
     cmd = [
         'ffmpeg', '-i', video_file,
-        '-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format={get_pix_fmt(s)}[v]",
+        '-filter_complex', f"[0:v]{video_filter}[v]",
         '-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?',
         '-c:v', s['codec'], '-preset', s['preset'],
     ]
     if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
-    else: cmd.extend(['-crf', s['crf']])
+    else: cmd.extend(['-crf', v_crf])
 
     if s['codec'] in ['libx264', 'libx265']:
         cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])

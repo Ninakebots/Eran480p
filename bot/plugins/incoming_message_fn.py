@@ -270,7 +270,7 @@ async def incoming_compress_message_f(update, user_settings=None):
             
         if o and os.path.exists(o):
             # Use centralized output_handler
-            from bot.helper_funcs.utils import output_handler
+            from bot.helper_funcs.output import output_handler
             await output_handler(
                 bot=bot,
                 update=update,
