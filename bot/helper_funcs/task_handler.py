@@ -27,7 +27,7 @@ from bot.helper_funcs.display_progress import (
     TimeFormatter,
     humanbytes
 )
-from bot.helper_funcs.utils import copy_to_dump_channel, upload_to_telegraph, output_handler
+from bot.helper_funcs.output import copy_to_dump_channel, upload_to_telegraph, output_handler
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 LOGGER = logging.getLogger(__name__)

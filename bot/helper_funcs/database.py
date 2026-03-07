@@ -120,7 +120,7 @@ class Database:
                     "codec": "libx264",
                     "audio_codec": "libopus",
                     "crf": "30",
-                    "resolution": "640x360",
+                    "resolution": "854x480",
                     "preset": "superfast",
                     "audio_b": "48k",
                     "video_bitrate": "Auto/None",

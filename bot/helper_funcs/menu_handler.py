@@ -8,7 +8,7 @@ class MenuHandler:
         codec = settings.get('codec', 'libx264')
         audio_codec = settings.get('audio_codec', 'libopus')
         crf = settings.get('crf', '30')
-        res = settings.get('resolution', '640x360')
+        res = settings.get('resolution', '854x480')
         preset = settings.get('preset', 'superfast')
         audio_b = settings.get('audio_b', '48k')
         video_b = settings.get('video_bitrate', 'Auto/None')
