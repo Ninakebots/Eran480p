@@ -19,6 +19,7 @@ from bot.helper_funcs.ffmpeg import (
     media_info,
     take_screen_shot,
     get_duration,
+    get_thumbnail,
     get_media_info_text
 )
 from bot.helper_funcs.display_progress import (
