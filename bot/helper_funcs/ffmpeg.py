@@ -39,6 +39,17 @@ MAX_RETRIES = 3
 
 # --- Utility Functions ---
 
+def get_pix_fmt(s):
+    """Determine pixel format based on bit depth setting."""
+    return "yuv420p10le" if s.get('bits') == '10 bits' else "yuv420p"
+
+def get_ffmpeg_level(res_h):
+    """Determine FFmpeg level based on vertical resolution."""
+    h = safe_int_convert(res_h)
+    if h <= 720: return "3.1"
+    if h <= 1080: return "4.1"
+    return "5.1"
+
 def get_file_size(filepath):
     try:
         return os.path.getsize(filepath) if os.path.exists(filepath) else 0
@@ -314,7 +325,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     ]
 
     if has_video:
-        cmd.extend(['-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p[v]"])
+        cmd.extend(['-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[v]"])
         cmd.extend(['-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?'])
         cmd.extend(['-c:v', s['codec']])
         if s.get('video_bitrate'):
@@ -328,7 +339,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         elif s['codec'] == 'libx265':
             cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
 
-        cmd.extend(['-level', '3.1'])
+        cmd.extend(['-level', get_ffmpeg_level(s['res_h'])])
         if s['codec'] == 'libx265' and output_file.endswith('.mp4'):
             cmd.extend(['-vtag', 'hvc1'])
     else:
@@ -407,7 +418,15 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
     ext_map = {res: (".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv") for res, s in settings_map.items()}
     outputs = {res: os.path.join(output_directory, f"[{res}] {base_name}{ext_map[res]}") for res in settings_map}
 
-    filter_complex = "split=3[v1][v2][v3]; " + "; ".join([f"[v{i+1}]scale={settings_map[res]['res_w']}:{settings_map[res]['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p[out{res}]" for i, res in enumerate(settings_map)])
+    filters = []
+    num_outputs = len(settings_map)
+    v_labels = "".join([f"[v{i+1}]" for i in range(num_outputs)])
+
+    for i, res in enumerate(settings_map):
+        s = settings_map[res]
+        filters.append(f"[v{i+1}]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[out{res}]")
+
+    filter_complex = f"split={num_outputs}{v_labels}; " + "; ".join(filters)
 
     cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file, '-filter_complex', filter_complex]
 
@@ -420,7 +439,7 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
         if s['codec'] in ['libx264', 'libx265']:
             cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
 
-        cmd.extend(['-level', '3.1', '-c:a', s.get('audio_codec', 'libopus'), '-b:a', s['audio_bitrate'], '-ac', '2', '-vbr', '2', '-c:s', 'copy', '-map_metadata', '-1', '-threads', '5'])
+        cmd.extend(['-level', get_ffmpeg_level(s['res_h']), '-c:a', s.get('audio_codec', 'libopus'), '-b:a', s['audio_bitrate'], '-ac', '2', '-vbr', '2', '-c:s', 'copy', '-map_metadata', '-1', '-threads', '5'])
 
         if s['codec'] == 'libx265' and outputs[res].endswith('.mp4'):
             cmd.extend(['-vtag', 'hvc1'])
@@ -453,7 +472,7 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
         ]
 
         if has_video:
-            cmd.extend(['-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format=yuv420p[v]"])
+            cmd.extend(['-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[v]"])
             cmd.extend(['-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?'])
             cmd.extend(['-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset']])
             if s['codec'] == 'libx264':
@@ -461,7 +480,7 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
             elif s['codec'] == 'libx265':
                 cmd.extend(['-x265-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
 
-            cmd.extend(['-level', '3.1'])
+            cmd.extend(['-level', get_ffmpeg_level(s['res_h'])])
             if s['codec'] == 'libx265' and output_file.endswith('.mp4'):
                 cmd.extend(['-vtag', 'hvc1'])
         else:
@@ -587,7 +606,7 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
 
     cmd = [
         'ffmpeg', '-i', video_file,
-        '-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format=yuv420p[v]",
+        '-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,subtitles='{escaped_path}':force_style='FontSize=16',format={get_pix_fmt(s)}[v]",
         '-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?',
         '-c:v', s['codec'], '-preset', s['preset'],
     ]
@@ -598,7 +617,7 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
         cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
 
     cmd.extend([
-        '-level', '3.1', '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-level', get_ffmpeg_level(s['res_h']), '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
         '-ac', '2', '-vbr', '2',
         '-map_metadata', '-1', '-threads', '5'
     ])

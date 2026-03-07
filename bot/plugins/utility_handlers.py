@@ -1,13 +1,14 @@
 import os
 import asyncio
 import logging
+import time
 import speedtest
 import subprocess
 from pyrogram import filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from bot import BOT_USERNAME, data, app, AUTH_USERS
 from bot.commands import Command
-from bot.helper_funcs.utils import sysinfo, is_auth, hbs
+from bot.helper_funcs.utils import sysinfo, is_auth, is_personal_auth, hbs
 from bot.helper_funcs.database import get_user_data, update_user_data
 from bot.localisation import Localisation
 
