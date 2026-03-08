@@ -20,7 +20,6 @@ from bot import (
 )
 from bot.config import Config
 from bot.helper_funcs.ffmpeg import (
-  convert_video,
   media_info,
   take_screen_shot,
   get_duration,
@@ -241,7 +240,8 @@ async def incoming_compress_message_f(update, user_settings=None):
                 user_settings = await get_user_data(user_id)
 
             # Compress video
-            o = await convert_video(
+            from bot.helper_funcs.converter import convert_video_robust
+            o = await convert_video_robust(
                 saved_file_path,  # Use saved_file_path instead of video
                 DOWNLOAD_LOCATION,
                 duration,
