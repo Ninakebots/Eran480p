@@ -9,7 +9,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQ
 from bot import BOT_USERNAME, data, app, AUTH_USERS
 from bot.commands import Command
 from bot.helper_funcs.utils import sysinfo, is_auth, is_personal_auth, hbs
-from bot.helper_funcs.database import get_user_data, update_user_data
+from bot.helper_funcs.database import db, get_user_data, update_user_data
 from bot.localisation import Localisation
 
 LOGGER = logging.getLogger(__name__)
@@ -78,43 +78,95 @@ async def ping_handler(client, message):
 
 @app.on_message(filters.incoming & filters.command([Command.SETUPLOAD, f"{Command.SETUPLOAD}@{BOT_USERNAME}"]) & is_personal_auth)
 async def setupload_handler(client, message):
-    args = message.text.split(" ")
-    if len(args) < 2:
+    user_id = message.from_user.id
+    user_data = await get_user_data(user_id)
+    current_dest = user_data.get("upload_destination", "chat")
+
+    text = (
+        "📍 **Upload Settings**\n\n"
+        f"Cᴜʀʀᴇɴᴛ Dᴇsᴛɪɴᴀᴛɪᴏɴ: `{str(current_dest).upper()}`\n\n"
+        "Sᴇʟᴇᴄᴛ ᴀɴ ᴜᴘʟᴏᴀᴅ ᴅᴇsᴛɪɴᴀᴛɪᴏɴ:"
+    )
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Private Message", callback_data="set_upload_pm"),
+            InlineKeyboardButton("Current Chat", callback_data="set_upload_chat")
+        ],
+        [InlineKeyboardButton("Gofile.io", callback_data="set_upload_gofile")],
+        [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
+    ])
+
+    await message.reply_text(text, reply_markup=keyboard)
+
+@app.on_callback_query(filters.regex(r"^set_upload_"))
+async def set_upload_callback_handler(client, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    if user_id not in AUTH_USERS and user_id > 0:
+        # Fallback to AdminCheck if not in hardcoded list
+        from bot.plugins.call_back_button_handler import AdminCheck
+        if not await AdminCheck(client, callback_query.message.chat.id, user_id):
+            return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
+
+    dest = callback_query.data.replace("set_upload_", "")
+    await update_user_data(user_id, {"upload_destination": dest})
+    await callback_query.answer(f"✅ Upload destination set to {dest.upper()}", show_alert=True)
+
+    user_data = await get_user_data(user_id)
+    current_dest = user_data.get("upload_destination", "chat")
+
+    text = (
+        "📍 **Upload Settings**\n\n"
+        f"Cᴜʀʀᴇɴᴛ Dᴇsᴛɪɴᴀᴛɪᴏɴ: `{str(current_dest).upper()}`\n\n"
+        "Sᴇʟᴇᴄᴛ ᴀɴ ᴜᴘʟᴏᴀᴅ ᴅᴇsᴛɪɴᴀᴛɪᴏɴ:"
+    )
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Private Message", callback_data="set_upload_pm"),
+            InlineKeyboardButton("Current Chat", callback_data="set_upload_chat")
+        ],
+        [InlineKeyboardButton("Gofile.io", callback_data="set_upload_gofile")],
+        [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
+    ])
+    try:
+        await callback_query.message.edit_text(text, reply_markup=keyboard)
+    except:
+        pass
+
+@app.on_message(filters.incoming & filters.command([Command.SETCAPTION, f"{Command.SETCAPTION}@{BOT_USERNAME}"]) & is_personal_auth)
+async def setcaption_handler(client, message):
+    user_id = message.from_user.id
+    if len(message.command) < 2:
         return await message.reply_text(
-            "📍 **Upload Settings**\n\n"
-            "Usage: `/setupload [destination]`\n\n"
-            "**Destinations:**\n"
-            "• `pm` - Upload to Private Message\n"
-            "• `chat` - Upload to current chat\n"
-            "• `ID` - Upload to specific Chat ID (e.g., `-100...`)"
+            "📝 **Custom Caption Settings**\n\n"
+            "Usage: `/setcaption [your caption]`\n\n"
+            "**Available Placeholders:**\n"
+            "• `{file_name}` - Name of the file\n"
+            "• `{file_size}` - Size of the file\n"
+            "• `{download_time}` - Time taken to download\n"
+            "• `{encoding_time}` - Time taken to encode\n"
+            "• `{upload_time}` - Time taken to upload\n\n"
+            "To reset, use: `/setcaption default`"
         )
 
-    dest = args[1].lower()
-    user_id = message.from_user.id
-
-    if dest in ["pm", "chat"]:
-        await update_user_data(user_id, {"upload_destination": dest})
-        await message.reply_text(f"✅ Upload destination set to: `{dest.upper()}`")
+    caption = message.text.split(maxsplit=1)[1]
+    if caption.lower() == "default":
+        await db.update_custom_caption(user_id, None)
+        await message.reply_text("✅ Custom caption reset to default.")
     else:
-        # Try to validate if it's a valid ID
-        try:
-            chat_id = int(dest)
-            await update_user_data(user_id, {"upload_destination": chat_id})
-            await message.reply_text(f"✅ Upload destination set to Chat ID: `{chat_id}`")
-        except ValueError:
-            await message.reply_text("❌ Invalid destination. Use `pm`, `chat` or a valid numeric `ID`.")
+        await db.update_custom_caption(user_id, caption)
+        await message.reply_text(f"✅ Custom caption set to:\n\n{caption}")
 
 @app.on_message(filters.incoming & filters.command([Command.SETMEDIA, f"{Command.SETMEDIA}@{BOT_USERNAME}"]) & is_personal_auth)
 async def setmedia_handler(client, message):
     user_id = message.from_user.id
     user_data = await get_user_data(user_id)
     current_media = user_data.get("upload_as", "video")
-    res = user_data.get("resolution", "720p")
 
     text = (
         f"📂 **Media Settings**\n\n"
-        f"Cᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{current_media.capitalize()}`\n"
-        f"Cᴜʀʀᴇɴᴛ Rᴇsᴏʟᴜᴛɪᴏɴ: `{res}`\n\n"
+        f"Cᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{current_media.capitalize()}`\n\n"
         "Sᴇʟᴇᴄᴛ ᴀ sᴇᴛᴛɪɴɢ ᴛᴏ ᴄʜᴀɴɢᴇ ɪᴛ:"
     )
 
@@ -123,7 +175,6 @@ async def setmedia_handler(client, message):
             InlineKeyboardButton("Video", callback_data="set_media_video"),
             InlineKeyboardButton("Document", callback_data="set_media_document")
         ],
-        [InlineKeyboardButton("🎬 Resolution", callback_data="set_res")],
         [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
     ])
 
@@ -132,8 +183,11 @@ async def setmedia_handler(client, message):
 @app.on_callback_query(filters.regex(r"^(set_media_(video|document)|back_to_media)$"))
 async def set_media_callback_handler(client, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-    if user_id not in AUTH_USERS or user_id <= 0:
-        return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
+    if user_id not in AUTH_USERS and user_id > 0:
+        # Fallback to AdminCheck if not in hardcoded list
+        from bot.plugins.call_back_button_handler import AdminCheck
+        if not await AdminCheck(client, callback_query.message.chat.id, user_id):
+            return await callback_query.answer("❌ You are not authorized to change these settings.", show_alert=True)
 
     data = callback_query.data
 
@@ -144,12 +198,10 @@ async def set_media_callback_handler(client, callback_query: CallbackQuery):
 
     user_data = await get_user_data(user_id)
     current_media = user_data.get("upload_as", "video")
-    res = user_data.get("resolution", "720p")
 
     text = (
         f"📂 **Media Settings**\n\n"
-        f"Cᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{current_media.capitalize()}`\n"
-        f"Cᴜʀʀᴇɴᴛ Rᴇsᴏʟᴜᴛɪᴏɴ: `{res}`\n\n"
+        f"Cᴜʀʀᴇɴᴛ Pʀᴇꜰᴇʀᴇɴᴄᴇ: `{current_media.capitalize()}`\n\n"
         "Sᴇʟᴇᴄᴛ ᴀ sᴇᴛᴛɪɴɢ ᴛᴏ ᴄʜᴀɴɢᴇ ɪᴛ:"
     )
     keyboard = InlineKeyboardMarkup([
@@ -157,7 +209,6 @@ async def set_media_callback_handler(client, callback_query: CallbackQuery):
             InlineKeyboardButton("Video", callback_data="set_media_video"),
             InlineKeyboardButton("Document", callback_data="set_media_document")
         ],
-        [InlineKeyboardButton("🎬 Resolution", callback_data="set_res")],
         [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
     ])
     try:

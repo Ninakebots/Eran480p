@@ -207,6 +207,7 @@ async def handle_all_resolutions_task(update, options):
 
 async def _process_media_handler(message, description, processing_func, *func_args, **func_kwargs):
     """Centralized helper for media processing tasks."""
+    task_type = func_kwargs.pop('task_type', None)
     sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", reply_to_message_id=message.id)
     try:
         video_path = await bot.download_media(message=message, progress=progress_for_pyrogram, progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time()))
@@ -216,7 +217,7 @@ async def _process_media_handler(message, description, processing_func, *func_ar
         output_path = await processing_func(video_path, DOWNLOAD_LOCATION, *func_args, **func_kwargs)
 
         if output_path:
-            await output_handler(bot=bot, update=message, output_path=output_path, input_path=video_path, sent_message=sent_message)
+            await output_handler(bot=bot, update=message, output_path=output_path, input_path=video_path, sent_message=sent_message, task_type=task_type)
         else:
             await sent_message.edit_text("❌ Processing failed.")
             if video_path and os.path.exists(video_path): os.remove(video_path)
@@ -226,11 +227,11 @@ async def _process_media_handler(message, description, processing_func, *func_ar
 
 async def handle_extract_audio_task(message, options):
     from bot.helper_funcs.ffmpeg import extract_audio
-    await _process_media_handler(message, "🎧 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈", extract_audio)
+    await _process_media_handler(message, "🎧 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝖺𝗎𝖽𝗂𝗈", extract_audio, task_type="extract_audio")
 
 async def handle_extract_sub_task(message, options):
     from bot.helper_funcs.ffmpeg import extract_subtitles
-    await _process_media_handler(message, "📝 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌", extract_subtitles)
+    await _process_media_handler(message, "📝 E𝗑𝗍𝗋𝖺𝖼𝗍𝗂𝗇𝗀 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌", extract_subtitles, task_type="extract_sub")
 
 async def handle_add_audio_task(message, options):
     audio_msg = options.get('audio_message')
@@ -390,7 +391,8 @@ async def handle_rename_task(message, options):
             bot=bot,
             update=message,
             output_path=new_path,
-            sent_message=sent_message
+            sent_message=sent_message,
+            task_type="rename"
         )
 
     except Exception as e:

@@ -200,6 +200,18 @@ class Database:
         thumb_path = os.path.join("thumbnails", f"{user_id}.jpg")
         return thumb_path if os.path.exists(thumb_path) else None
 
+    async def get_custom_caption(self, user_id: int) -> Optional[str]:
+        data = await self.get_user_data(user_id)
+        return data.get('custom_caption')
+
+    async def update_custom_caption(self, user_id: int, caption: str) -> bool:
+        return await self.update_user_data(user_id, {"custom_caption": caption})
+
+    async def get_watermark(self, user_id: int) -> Optional[str]:
+        import os
+        wm_path = os.path.join("watermarks", f"{user_id}.png")
+        return wm_path if os.path.exists(wm_path) else None
+
 db = Database()
 
 async def get_user_data(user_id: int) -> dict:

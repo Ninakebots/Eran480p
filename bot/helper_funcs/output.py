@@ -49,11 +49,16 @@ async def copy_to_dump_channel(bot, message, user_id):
     except Exception as e:
         LOGGER.error(f"Error copying to dump channel: {e}")
 
-async def output_handler(bot, update, output_path, download_time=None, encoding_time=None, thumb_path=None, input_path=None, sent_message=None):
+async def output_handler(bot, update, output_path, download_time=None, encoding_time=None, thumb_path=None, input_path=None, sent_message=None, task_type=None):
     user_id = update.from_user.id if update.from_user else update.chat.id
     user_settings = await get_user_data(user_id)
     upload_dest = user_settings.get("upload_destination", "chat")
     upload_as = user_settings.get("upload_as", "video")
+
+    # Override thumb_path with user's custom thumbnail if available
+    custom_thumb = await db.get_thumbnail(user_id)
+    if custom_thumb:
+        thumb_path = custom_thumb
 
     # Determine destination chat
     dest_chat = update.chat.id
@@ -75,9 +80,21 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
         # Generate initial caption
         d_time = download_time or "N/A"
         e_time = encoding_time or "N/A"
+        file_name = os.path.basename(output_path)
+        file_size = hbs(os.path.getsize(output_path))
 
-        # We use .replace to match existing style and support both indexed and non-indexed placeholders
-        caption = Localisation.COMPRESS_SUCCESS.replace('{}', d_time, 1).replace('{}', e_time, 1)
+        custom_caption = await db.get_custom_caption(user_id)
+        if custom_caption:
+            caption = custom_caption.replace("{file_name}", file_name).replace("{file_size}", file_size).replace("{download_time}", d_time).replace("{encoding_time}", e_time)
+        else:
+            if task_type == "rename":
+                caption = f"✅ **File Renamed Successfully!**\n\n📁 **Name:** `{file_name}`\n⚖️ **Size:** `{file_size}`"
+            elif task_type == "extract_audio":
+                caption = f"🎧 **Audio Extracted Successfully!**\n\n📁 **Name:** `{file_name}`\n⚖️ **Size:** `{file_size}`"
+            elif task_type == "extract_sub":
+                caption = f"📝 **Subtitles Extracted Successfully!**\n\n📁 **Name:** `{file_name}`\n⚖️ **Size:** `{file_size}`"
+            else:
+                caption = Localisation.COMPRESS_SUCCESS.replace('{}', d_time, 1).replace('{}', e_time, 1)
 
         # Upload
         upload = None
@@ -87,20 +104,21 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
                 download_url = await upload_gofile(output_path, token=GOFILE_TOKEN)
                 if download_url:
                     u_time = TimeFormatter((time.time() - u_start) * 1000)
-                    file_name = os.path.basename(output_path)
-                    file_size = hbs(os.path.getsize(output_path))
 
-                    text = (
-                        f"✅ **{style_text('File Encoded & Uploaded to Gofile!')}**\n\n"
-                        f"📁 **{style_text('File Name:')}** `{file_name}`\n"
-                        f"⚖️ **{style_text('Size:')}** `{file_size}`\n"
-                        f"🔗 **{style_text('Download Link:')}** {download_url}\n\n"
-                        f"<blockquote>"
-                        f"<b>📥 {style_text('Download Time:')}</b> {d_time}\n"
-                        f"<b>📀 {style_text('Encoding Time:')}</b> {e_time}\n"
-                        f"<b>📤 {style_text('Upload Time:')}</b> {u_time}"
-                        f"</blockquote>"
-                    )
+                    if custom_caption:
+                        text = caption.replace("{upload_time}", u_time) + f"\n\n🔗 **Download Link:** {download_url}"
+                    else:
+                        text = (
+                            f"✅ **{style_text('File Processed & Uploaded to Gofile!')}**\n\n"
+                            f"📁 **{style_text('File Name:')}** `{file_name}`\n"
+                            f"⚖️ **{style_text('Size:')}** `{file_size}`\n"
+                            f"🔗 **{style_text('Download Link:')}** {download_url}\n\n"
+                            f"<blockquote>"
+                            f"<b>📥 {style_text('Download Time:')}</b> {d_time}\n"
+                            f"<b>📀 {style_text('Encoding Time:')}</b> {e_time}\n"
+                            f"<b>📤 {style_text('Upload Time:')}</b> {u_time}"
+                            f"</blockquote>"
+                        )
                     await bot.send_message(
                         chat_id=update.chat.id,
                         text=text,
@@ -150,7 +168,10 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
             if upload:
                 # Update caption with actual upload time
                 try:
-                    final_caption = caption.replace('{}', u_time, 1)
+                    if custom_caption:
+                        final_caption = caption.replace("{upload_time}", u_time)
+                    else:
+                        final_caption = caption.replace('{}', u_time, 1)
                     await upload.edit_caption(caption=final_caption)
                 except Exception as e:
                     LOGGER.error(f"Error editing caption: {e}")
