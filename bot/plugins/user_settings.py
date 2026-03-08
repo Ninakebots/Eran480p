@@ -175,14 +175,12 @@ async def update_encoding_setting_handler(client, callback_query: CallbackQuery)
             if key == "resolution" and value == "All":
                 await update_user_data(user_id, {key: value})
                 if reply_to_id:
-                    # Triggers 3 encoding tasks immediately
+                    # Triggers the multi-resolution encoding task
                     from bot.helper_funcs.utils import add_to_queue
                     try:
                         media_message = await client.get_messages(callback_query.message.chat.id, reply_to_id)
-                        await add_to_queue(media_message, "480p")
-                        await add_to_queue(media_message, "720p")
-                        await add_to_queue(media_message, "1080p")
-                        await callback_query.answer("⏰ Default set to 'All' and added all 3 tasks to queue!", show_alert=True)
+                        await add_to_queue(media_message, "all_resolutions")
+                        await callback_query.answer("⏰ Default set to 'All' and added multi-resolution task to queue!", show_alert=True)
                     except Exception as e:
                         await callback_query.answer(f"❌ Error queuing tasks: {e}", show_alert=True)
                 else:

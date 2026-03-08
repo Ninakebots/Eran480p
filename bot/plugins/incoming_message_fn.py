@@ -60,6 +60,9 @@ async def get_video_duration_and_bitrate(file_path):
             
             if duration == 0 and 'format' in media_data:
                 duration = safe_float_convert(media_data['format'].get('duration'), 0)
+
+            if bitrate == 0 and 'format' in media_data:
+                bitrate = safe_int_convert(media_data['format'].get('bit_rate'), 0)
         
         if duration == 0:
             duration = get_duration(file_path)

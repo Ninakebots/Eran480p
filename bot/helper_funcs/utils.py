@@ -39,15 +39,10 @@ async def task_worker():
     while True:
         task_info = await TASK_QUEUE.get()
         try:
-            # Safer cleanup of downloads directory
-            from bot import DOWNLOAD_LOCATION
-            os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
-            for file in os.listdir(DOWNLOAD_LOCATION):
-                file_path = os.path.join(DOWNLOAD_LOCATION, file)
-                try:
-                    if os.path.isfile(file_path) or os.path.islink(file_path): os.unlink(file_path)
-                    elif os.path.isdir(file_path): shutil.rmtree(file_path)
-                except Exception as e: LOGGER.warning(f"Failed to delete {file_path}: {e}")
+            # Check if task is still in data list (not cancelled)
+            if not any(d.get('id') == task_info.get('id') for d in data):
+                LOGGER.info(f"Task {task_info.get('id')} was cancelled, skipping...")
+                continue
 
             from bot.helper_funcs.task_handler import execute_task
             await execute_task(task_info)
