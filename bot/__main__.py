@@ -283,7 +283,6 @@ if __name__ == "__main__":
         # Set bot commands
         commands = [
             BotCommand(Command.START, "Check bot status"),
-            BotCommand(Command.COMPRESS, "Compress video"),
             BotCommand(Command.P480, "Compress to 480p"),
             BotCommand(Command.P720, "Compress to 720p"),
             BotCommand(Command.P1080, "Compress to 1080p"),
