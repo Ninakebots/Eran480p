@@ -31,7 +31,7 @@ async def progress_for_pyrogram(
     if round(diff % 10.00) == 0 or current == total:
         # if round(current / total * 100, 0) % 5 == 0:
         percentage = current * 100 / total
-        status = DOWNLOAD_LOCATION + "/status.json"
+        status = os.path.join(DOWNLOAD_LOCATION, f"status_{message.id}.json")
         if os.path.exists(status):
             with open(status, 'r+') as f:
                 statusMsg = json.load(f)
