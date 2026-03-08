@@ -121,7 +121,8 @@ async def incoming_compress_message_f(update, user_settings=None):
     d_start = time.time()
     c_start = time.time()
     u_start = time.time()
-    status = os.path.join(DOWNLOAD_LOCATION, "status.json")
+    # Path placeholder, will be set after sent_message is created
+    status = None
     
     sent_message = await bot.send_message(
         chat_id=update.chat.id,
@@ -133,7 +134,8 @@ async def incoming_compress_message_f(update, user_settings=None):
         d_start = time.time()
         os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
         
-        # Save status
+        # Save status using original message ID for consistency
+        status = os.path.join(DOWNLOAD_LOCATION, f"status_{update.id}.json")
         with open(status, 'w') as f:
             statusMsg = {
                 'running': True,
@@ -246,7 +248,7 @@ async def incoming_compress_message_f(update, user_settings=None):
                 DOWNLOAD_LOCATION,
                 duration,
                 bot,
-                sent_message,
+                update,
                 user_settings
             )
             
@@ -319,8 +321,9 @@ async def incoming_cancel_message_f(bot, update):
             pass
         return
 
-    status = os.path.join(DOWNLOAD_LOCATION, "status.json")
-    if os.path.exists(status):
+    # Check for any active status files
+    status_files = [f for f in os.listdir(DOWNLOAD_LOCATION) if f.startswith("status") and f.endswith(".json")]
+    if status_files:
         inline_keyboard = []
         ikeyboard = []
         ikeyboard.append(InlineKeyboardButton("Yᴇꜱ 🚫", callback_data=("fuckingdo").encode("UTF-8")))

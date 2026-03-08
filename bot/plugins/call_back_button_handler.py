@@ -123,7 +123,27 @@ async def button(bot, update: CallbackQuery):
             # Check if user is an admin or authorized in DB
             is_authorized = await is_auth(bot, update)
             if is_authorized:
-                status = os.path.join(DOWNLOAD_LOCATION, "status.json")
+                # Try to find task-specific status file first
+                # In most cases, button.message.reply_to_message is the 'sent_message'
+                # And sent_message.reply_to_message is the original user message.
+                # Our new consistency rule uses the original user message ID.
+                status = None
+
+                # Check original user message ID (nested reply)
+                if update.message.reply_to_message and update.message.reply_to_message.reply_to_message:
+                    status_path = os.path.join(DOWNLOAD_LOCATION, f"status_{update.message.reply_to_message.reply_to_message.id}.json")
+                    if os.path.exists(status_path):
+                        status = status_path
+
+                # Fallback to direct reply ID if it exists
+                if not status and update.message.reply_to_message:
+                    status_path = os.path.join(DOWNLOAD_LOCATION, f"status_{update.message.reply_to_message.id}.json")
+                    if os.path.exists(status_path):
+                        status = status_path
+
+                if not status:
+                    status = os.path.join(DOWNLOAD_LOCATION, "status.json")
+
                 if os.path.exists(status):
                     with open(status, 'r+') as f:
                         try:

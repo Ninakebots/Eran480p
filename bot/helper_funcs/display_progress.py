@@ -31,12 +31,22 @@ async def progress_for_pyrogram(
     if round(diff % 10.00) == 0 or current == total:
         # if round(current / total * 100, 0) % 5 == 0:
         percentage = current * 100 / total
-        status = DOWNLOAD_LOCATION + "/status.json"
-        if os.path.exists(status):
-            with open(status, 'r+') as f:
-                statusMsg = json.load(f)
-                if not statusMsg["running"]:
-                    bot.stop_transmission()
+        # Check for unique status file (original user message ID) or fallback
+        status_id = message.reply_to_message_id if hasattr(message, 'reply_to_message_id') and message.reply_to_message_id else message.id
+        status_file = os.path.join(DOWNLOAD_LOCATION, f"status_{status_id}.json")
+        if not os.path.exists(status_file):
+            status_file = os.path.join(DOWNLOAD_LOCATION, f"status_{message.id}.json")
+        if not os.path.exists(status_file):
+            status_file = os.path.join(DOWNLOAD_LOCATION, "status.json")
+
+        if os.path.exists(status_file):
+            with open(status_file, 'r') as f:
+                try:
+                    statusMsg = json.load(f)
+                    if not statusMsg.get("running", True):
+                        bot.stop_transmission()
+                except:
+                    pass
         speed = current / diff
         elapsed_time = round(diff) * 1000
         time_to_completion = round((total - current) / speed) * 1000

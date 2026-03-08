@@ -13,10 +13,13 @@ LOGGER = logging.getLogger(__name__)
 
 FIX_FLAGS = ['-fflags', '+genpts', '-ignore_unknown']
 
-async def convert_video_robust(video_file, output_directory, total_time, bot, message, settings=None):
+async def convert_video_robust(video_file, output_directory, total_time, bot, message, settings=None, chan_msg=None, watermark_url='https://files.catbox.moe/fou179.jpg'):
     """Robust wrapper for convert_video1 with retry and fix flags."""
     # Attempt 1
-    result = await convert_video1(video_file, output_directory, total_time, bot, message, settings=settings)
+    result = await convert_video1(
+        video_file, output_directory, total_time, bot, message,
+        settings=settings, chan_msg=chan_msg, watermark_url=watermark_url
+    )
 
     if result and os.path.exists(result):
         return result
@@ -25,7 +28,8 @@ async def convert_video_robust(video_file, output_directory, total_time, bot, me
     LOGGER.warning(f"Conversion failed for {video_file}. Retrying with fix flags...")
     return await convert_video1(
         video_file, output_directory, total_time, bot, message,
-        settings=settings, extra_args=FIX_FLAGS
+        settings=settings, chan_msg=chan_msg, watermark_url=watermark_url,
+        extra_args=FIX_FLAGS
     )
 
 async def convert_video_all_robust(video_file, output_directory, total_time, bot, message, settings=None):

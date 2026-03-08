@@ -380,7 +380,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
 
     return output_file if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000 else None
 
-async def convert_video1(video_file, output_directory, total_time, bot, message, settings=None, extra_args=None):
+async def convert_video1(video_file, output_directory, total_time, bot, message, settings=None, chan_msg=None, watermark_url='https://files.catbox.moe/fou179.jpg', extra_args=None):
     if not os.path.exists(video_file):
         LOGGER.error(f"Video file not found: {video_file}")
         return None
@@ -400,16 +400,41 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         s = await get_encoding_settings(settings)
         # Determine extension based on codec
         ext = ".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv"
+        temp_output = os.path.join(output_directory, f"{name}_temp{ext}")
         final_output = os.path.join(output_directory, f"[Encoded] {name}{ext}")
 
         progress_file = os.path.join(DOWNLOAD_LOCATION, f"progress_{message.id}_{int(time.time())}.txt")
-        status_file = os.path.join(DOWNLOAD_LOCATION, "status.json")
+        # Unique status file to prevent race conditions
+        status_file = os.path.join(DOWNLOAD_LOCATION, f"status_{message.id}.json")
 
         with open(progress_file, 'w') as f:
             f.write("")
 
         user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else message.chat.id
         wm_path = await db.get_watermark(user_id)
+
+        # If no personal watermark, use the watermark_url
+        if not wm_path and watermark_url:
+            wm_path = watermark_url
+
+        # Download watermark if it's a URL
+        if wm_path and wm_path.startswith("http"):
+            try:
+                import aiohttp
+                wm_temp = os.path.join(DOWNLOAD_LOCATION, f"wm_{message.id}.png")
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(wm_path) as resp:
+                        if resp.status == 200:
+                            with open(wm_temp, 'wb') as f:
+                                f.write(await resp.read())
+                            wm_path = wm_temp
+                        else:
+                            LOGGER.error(f"Failed to download watermark from {wm_path}, status: {resp.status}")
+                            wm_path = None
+            except Exception as e:
+                LOGGER.error(f"Error downloading watermark: {e}")
+                wm_path = None
+
         has_video = validate_video_file(video_file)
 
         cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning']
@@ -455,8 +480,9 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         if final_output.endswith('.mp4'):
             cmd.extend(['-movflags', '+faststart'])
 
-        cmd.extend(['-y', final_output])
+        cmd.extend(['-y', temp_output])
 
+        LOGGER.info(f"FFmpeg command: {' '.join(cmd)}")
         COMPRESSION_START_TIME = time.time()
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         LOGGER.info(f"FFmpeg process started PID: {process.pid}")
@@ -478,11 +504,29 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
             try:
                 await asyncio.sleep(PROGRESS_UPDATE_INTERVAL)
 
+                # Explicit cancellation check
+                if os.path.exists(status_file):
+                    with open(status_file, 'r') as f:
+                        try:
+                            status_msg = json.load(f)
+                            if not status_msg.get("running", True):
+                                LOGGER.info(f"Cancellation requested for PID {process.pid}")
+                                process.terminate()
+                                break
+                        except:
+                            pass
+
                 if process.returncode is not None:
                     if process.returncode == 0:
                         encoding_complete = True
                     else:
                         LOGGER.error(f"FFmpeg exited with code: {process.returncode}")
+                        try:
+                            stdout_data, stderr_data = await process.communicate()
+                            if stderr_data:
+                                LOGGER.error(f"FFmpeg stderr: {stderr_data.decode(errors='ignore')}")
+                        except:
+                            pass
                     break
 
                 if time.time() - COMPRESSION_START_TIME > FFMPEG_TIMEOUT:
@@ -500,11 +544,18 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
 
                 frame_match = re.findall(r'frame=(\d+)', content)
                 time_match = re.findall(r'out_time_ms=(\d+)', content)
+                # Fallback for out_time_us if ms is not present or we want to be thorough
+                if not time_match:
+                    time_match = re.findall(r'out_time_us=(\d+)', content)
+                    is_us = True
+                else:
+                    is_us = False
+
                 speed_match = re.findall(r'speed=([\d.]+)x?', content)
                 progress_match = re.findall(r'progress=(\w+)', content)
 
                 frame = frame_match[-1] if frame_match else '0'
-                elapsed_us = safe_int_convert(time_match[-1] if time_match else '0', 0)
+                elapsed_raw = safe_int_convert(time_match[-1] if time_match else '0', 0)
                 speed_str = speed_match[-1] if speed_match else '1'
                 progress_status = progress_match[-1] if progress_match else ''
 
@@ -517,7 +568,13 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
                     encoding_complete = True
                     break
 
-                elapsed_time = safe_float_convert(elapsed_us / 1000000.0)
+                # FFmpeg's -progress output out_time_ms is often actually microseconds
+                # We divide by 1,000,000 if it's very large, otherwise assume ms
+                if elapsed_raw > total_time_safe * 1000:
+                    elapsed_time = safe_float_convert(elapsed_raw / 1000000.0)
+                else:
+                    elapsed_time = safe_float_convert(elapsed_raw / 1000.0)
+
                 percentage = min(99, (elapsed_time / total_time_safe) * 100 if total_time_safe > 0 else 0)
 
                 if speed > 0 and total_time_safe > elapsed_time:
@@ -547,9 +604,11 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
                 LOGGER.error(f"Error in progress loop: {e}")
 
         if process.returncode is None:
-            await process.wait()
+            stdout_data, stderr_data = await process.communicate()
             if process.returncode == 0:
                 encoding_complete = True
+            else:
+                LOGGER.error(f"FFmpeg failed with code {process.returncode}: {stderr_data.decode(errors='ignore')}")
 
         if progress_msg:
             try: await progress_msg.delete()
@@ -564,7 +623,17 @@ async def convert_video1(video_file, output_directory, total_time, bot, message,
         if os.path.exists(status_file):
             os.remove(status_file)
 
-        return final_output if encoding_complete and os.path.exists(final_output) and os.path.getsize(final_output) > 1000 else None
+        # Cleanup downloaded watermark if it was a temp file
+        if wm_path and os.path.join(DOWNLOAD_LOCATION, f"wm_{message.id}") in wm_path:
+            if os.path.exists(wm_path): os.remove(wm_path)
+
+        if encoding_complete and os.path.exists(temp_output):
+            if os.path.exists(final_output): os.remove(final_output)
+            os.rename(temp_output, final_output)
+            return final_output if os.path.getsize(final_output) > 1000 else None
+        else:
+            if os.path.exists(temp_output): os.remove(temp_output)
+            return None
 
     except Exception as e:
         LOGGER.error(f"Error in convert_video1: {e}")
