@@ -469,27 +469,43 @@ async def handle_merge_task(message, options):
             if p and os.path.exists(p): os.remove(p)
 
 async def handle_zip_task(message, options):
-    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖿𝗂𝗅𝖾 𝗍𝗈 𝗓𝗂𝗉...📥", reply_to_message_id=message.id)
-    file_path = None
-    zip_path = None
+    file_messages = options.get('file_messages', [])
+    if not file_messages:
+        # Fallback for single file zip via reply (old behavior)
+        file_messages = [message.reply_to_message] if message.reply_to_message else []
+
+    if not file_messages:
+        return await bot.send_message(chat_id=message.chat.id, text="❌ No files found for zip.")
+
+    sent_message = await bot.send_message(chat_id=message.chat.id, text=f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ {len(file_messages)} 𝖿𝗂𝗅𝖾𝗌 𝖿𝗈𝗋 𝗓𝗂𝗉...📥", reply_to_message_id=message.id)
+
+    downloaded_files = []
+    zip_path = os.path.join(DOWNLOAD_LOCATION, f"archive_{int(time.time())}.zip")
+
     try:
-        file_path = await bot.download_media(
-            message=message,
-            progress=progress_for_pyrogram,
-            progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time())
-        )
-        if not file_path:
-            return await sent_message.edit_text("❌ Download failed.")
+        for i, msg in enumerate(file_messages):
+            await sent_message.edit_text(f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖿𝗂𝗅𝖾 {i+1}/{len(file_messages)}...📥")
+            file_path = await bot.download_media(
+                message=msg,
+                progress=progress_for_pyrogram,
+                progress_args=(bot, f"Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖿𝗂𝗅𝖾 {i+1}...📥", sent_message, time.time())
+            )
+            if file_path:
+                downloaded_files.append(file_path)
+            else:
+                await sent_message.edit_text(f"⚠️ Failed to download file {i+1}. Skipping...")
 
-        await sent_message.edit_text("🗜️ Z𝗂𝗉𝗉𝗂𝗇𝗀 𝖿𝗂𝗅𝖾...⚙️")
+        if not downloaded_files:
+            return await sent_message.edit_text("❌ No files were downloaded. Zipping aborted.")
 
-        zip_path = file_path + ".zip"
+        await sent_message.edit_text(f"🗜️ Z𝗂𝗉𝗉𝗂𝗇𝗀 {len(downloaded_files)} 𝖿𝗂𝗅𝖾𝗌...⚙️")
 
-        def zip_file(f_path, z_path):
+        def create_zip(files, z_path):
             with zipfile.ZipFile(z_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                zipf.write(f_path, os.path.basename(f_path))
+                for f in files:
+                    zipf.write(f, os.path.basename(f))
 
-        await asyncio.to_thread(zip_file, file_path, zip_path)
+        await asyncio.to_thread(create_zip, downloaded_files, zip_path)
 
         if os.path.exists(zip_path):
             await output_handler(
@@ -509,7 +525,8 @@ async def handle_zip_task(message, options):
         except:
             pass
     finally:
-        if file_path and os.path.exists(file_path):
-            os.remove(file_path)
-        if zip_path and os.path.exists(zip_path):
-            os.remove(zip_path)
+        for p in downloaded_files:
+            if p and os.path.exists(p): os.remove(p)
+        if zip_path and os.path.exists(zip_path) and not os.path.exists(zip_path + ".uploaded"): # Just a safeguard
+            # Actually output_handler deletes it, but we should be careful
+            pass
