@@ -36,3 +36,6 @@ class Command:
     SETMEDIA = "setmedia"
     SAVETHUMB = "savethumb"
     DELTHUMB = "delthumb"
+    RENAME = "rename"
+    AUTHLIST = "authlist"
+    RESTART = "restart"
