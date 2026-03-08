@@ -121,7 +121,6 @@ async def incoming_compress_message_f(update, user_settings=None):
     d_start = time.time()
     c_start = time.time()
     u_start = time.time()
-    status = os.path.join(DOWNLOAD_LOCATION, "status.json")
     
     sent_message = await bot.send_message(
         chat_id=update.chat.id,
@@ -129,15 +128,18 @@ async def incoming_compress_message_f(update, user_settings=None):
         reply_to_message_id=update.id
     )
     
+    status = os.path.join(DOWNLOAD_LOCATION, f"status_{sent_message.id}.json")
     try:
         d_start = time.time()
         os.makedirs(DOWNLOAD_LOCATION, exist_ok=True)
         
         # Save status
+        user_id = update.from_user.id if update.from_user else update.chat.id
         with open(status, 'w') as f:
             statusMsg = {
                 'running': True,
-                'message': sent_message.id
+                'message': sent_message.id,
+                'user_id': user_id
             }
             json.dump(statusMsg, f, indent=2)
         
@@ -250,7 +252,7 @@ async def incoming_compress_message_f(update, user_settings=None):
                 user_settings
             )
             
-            LOGGER.info(f"convert_video returned: {o}")
+            LOGGER.info(f"convert_video_robust returned: {o}")
             
         except Exception as e:
             LOGGER.error(f"Compression error: {str(e)}")
@@ -313,14 +315,39 @@ async def incoming_compress_message_f(update, user_settings=None):
 async def incoming_cancel_message_f(bot, update):
     user_id = update.from_user.id if update.from_user else None
     if user_id not in AUTH_USERS:
-        try:
-            await update.delete()
-        except:
-            pass
-        return
+        # Check if user has an active task in DOWNLOAD_LOCATION
+        has_task = False
+        for f in os.listdir(DOWNLOAD_LOCATION):
+            if f.startswith("status_") and f.endswith(".json"):
+                try:
+                    with open(os.path.join(DOWNLOAD_LOCATION, f), 'r') as status_file:
+                        data = json.load(status_file)
+                        if data.get('user_id') == user_id:
+                            has_task = True
+                            break
+                except:
+                    pass
 
-    status = os.path.join(DOWNLOAD_LOCATION, "status.json")
-    if os.path.exists(status):
+        if not has_task:
+            try:
+                await update.delete()
+            except:
+                pass
+            return
+
+    # Find tasks for this user (or all if admin)
+    tasks = []
+    for f in os.listdir(DOWNLOAD_LOCATION):
+        if f.startswith("status_") and f.endswith(".json"):
+            try:
+                with open(os.path.join(DOWNLOAD_LOCATION, f), 'r') as status_file:
+                    data = json.load(status_file)
+                    if user_id in AUTH_USERS or data.get('user_id') == user_id:
+                        tasks.append(f)
+            except:
+                pass
+
+    if tasks:
         inline_keyboard = []
         ikeyboard = []
         ikeyboard.append(InlineKeyboardButton("Yᴇꜱ 🚫", callback_data=("fuckingdo").encode("UTF-8")))

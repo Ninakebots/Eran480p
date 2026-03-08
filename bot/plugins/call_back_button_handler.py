@@ -123,46 +123,57 @@ async def button(bot, update: CallbackQuery):
             # Check if user is an admin or authorized in DB
             is_authorized = await is_auth(bot, update)
             if is_authorized:
-                status = os.path.join(DOWNLOAD_LOCATION, "status.json")
-                if os.path.exists(status):
-                    with open(status, 'r+') as f:
+                found_tasks = 0
+                for f in os.listdir(DOWNLOAD_LOCATION):
+                    if f.startswith("status_") and f.endswith(".json"):
+                        status_path = os.path.join(DOWNLOAD_LOCATION, f)
                         try:
-                            statusMsg = json.load(f)
-                            statusMsg['running'] = False
-                            f.seek(0)
-                            json.dump(statusMsg, f, indent=2)
-                            f.truncate()
+                            with open(status_path, 'r+') as sf:
+                                statusMsg = json.load(sf)
+                                # Only cancel if admin or it's the user's task
+                                if user_id in AUTH_USERS or statusMsg.get('user_id') == user_id:
+                                    found_tasks += 1
+                                    statusMsg['running'] = False
+                                    sf.seek(0)
+                                    json.dump(statusMsg, sf, indent=2)
+                                    sf.truncate()
 
-                            if 'pid' in statusMsg:
-                                try:
-                                    os.kill(statusMsg["pid"], signal.SIGTERM)
-                                except:
-                                    pass
+                                    if 'pid' in statusMsg:
+                                        try:
+                                            os.kill(statusMsg["pid"], signal.SIGTERM)
+                                            if statusMsg["pid"] in pid_list:
+                                                pid_list.remove(statusMsg["pid"])
+                                        except:
+                                            pass
 
-                            if pid_list:
-                                try:
-                                    os.kill(pid_list[0], signal.SIGTERM)
-                                    del pid_list[0]
-                                except:
-                                    pass
+                                    # Try to delete original progress file if exists
+                                    msg_id = statusMsg.get('message')
+                                    if msg_id:
+                                        for pf in os.listdir(DOWNLOAD_LOCATION):
+                                            if pf.startswith(f"progress_{msg_id}_"):
+                                                try: os.remove(os.path.join(DOWNLOAD_LOCATION, pf))
+                                                except: pass
 
-                            # Safer cleanup using DOWNLOAD_LOCATION
-                            if os.path.exists(DOWNLOAD_LOCATION):
-                                for file in os.listdir(DOWNLOAD_LOCATION):
-                                    file_path = os.path.join(DOWNLOAD_LOCATION, file)
                                     try:
-                                        if os.path.isfile(file_path) or os.path.islink(file_path):
-                                            os.unlink(file_path)
-                                        elif os.path.isdir(file_path):
-                                            shutil.rmtree(file_path)
-                                    except Exception:
+                                        await bot.delete_messages(update.message.chat.id, statusMsg["message"])
+                                    except:
                                         pass
 
-                            await bot.delete_messages(update.message.chat.id, statusMsg["message"])
+                                    # We don't remove the status file here, it will be removed by the process monitor or loop
                         except Exception as e:
-                            LOGGER.error(f"Error processing status.json: {e}")
+                            LOGGER.error(f"Error processing status file {f}: {e}")
+
+                if found_tasks > 0:
+                    await update.message.edit_text(f"🛑 Cancelled {found_tasks} active task(s).")
+
+                    # If admin and multiple tasks, we might not want to clear EVERYTHING
+                    # but for single user it's fine.
+                    if user_id in AUTH_USERS:
+                         # For admins, maybe just clear everything if they use /cancel
+                         # but here we only cleared the found tasks PIDs
+                         pass
                 else:
-                    await update.answer("No active process found.", show_alert=True)
+                    await update.answer("No active process found for you.", show_alert=True)
             else:
                 try:
                     await update.message.edit_text("Yᴏᴜ ᴀʀᴇ Nᴏᴛ Aʟʟᴏᴡᴇᴅ ᴛᴏ ᴅᴏ Tʜᴀᴛ 🤭")
