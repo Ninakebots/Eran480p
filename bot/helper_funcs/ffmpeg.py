@@ -298,7 +298,7 @@ async def get_encoding_settings(settings=None, res_key=None):
         'wm_size': g.get('wm_size', '0')
     }
 
-async def convert_video(video_file, output_directory, total_time, bot, message, settings=None):
+async def convert_video(video_file, output_directory, total_time, bot, message, settings=None, extra_args=None):
     """Main compression function."""
     if not os.path.exists(video_file):
         return None
@@ -322,10 +322,10 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     has_video = validate_video_file(video_file)
     LOGGER.info(f"File: {video_file}, has_video: {has_video}, settings: {s}")
 
-    cmd = [
-        'ffmpeg', '-hide_banner', '-loglevel', 'warning',
-        '-i', video_file
-    ]
+    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning']
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.extend(['-i', video_file])
 
     if wm_path:
         cmd.extend(['-i', wm_path])
@@ -380,7 +380,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
 
     return output_file if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000 else None
 
-async def convert_video_custom(video_file, output_directory, total_time, bot, message, ffmpegcode):
+async def convert_video_custom(video_file, output_directory, total_time, bot, message, ffmpegcode, extra_args=None):
     """Run video compression with custom FFmpeg flags string."""
     if not os.path.exists(video_file):
         return None
@@ -404,7 +404,10 @@ async def convert_video_custom(video_file, output_directory, total_time, bot, me
     # Expected ffmpegcode is just the flags (e.g., "-c:v libx264 ...")
     flags = shlex.split(ffmpegcode)
 
-    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file]
+    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning']
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.extend(['-i', video_file])
     cmd.extend(flags)
     cmd.extend(['-y', output_file])
 
@@ -413,7 +416,7 @@ async def convert_video_custom(video_file, output_directory, total_time, bot, me
 
     return output_file if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000 else None
 
-async def convert_video_all(video_file, output_directory, total_time, bot, message, settings=None):
+async def convert_video_all(video_file, output_directory, total_time, bot, message, settings=None, extra_args=None):
     """Encode 480p, 720p, and 1080p simultaneously."""
     if not os.path.exists(video_file): return []
 
@@ -455,7 +458,10 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
 
     filter_complex += "; ".join(filters)
 
-    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file]
+    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning']
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.extend(['-i', video_file])
     if wm_path:
         cmd.extend(['-i', wm_path])
 
@@ -482,7 +488,7 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
     success = await run_ffmpeg_with_progress(cmd, total_duration, bot, message, "Multi-Resolution Encoding...")
     return [p for p in outputs.values() if success and os.path.exists(p) and os.path.getsize(p) > 1000]
 
-async def cut_video(video_file, output_directory, start_time, end_time, bot, message, settings=None):
+async def cut_video(video_file, output_directory, start_time, end_time, bot, message, settings=None, extra_args=None):
     """Trim video with optional re-encoding using same settings."""
     if not os.path.exists(video_file):
         return None
@@ -501,9 +507,10 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
         user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else message.chat.id
         wm_path = await db.get_watermark(user_id)
 
-        cmd = [
-            'ffmpeg', '-ss', str(start_s), '-i', video_file, '-t', str(duration)
-        ]
+        cmd = ['ffmpeg']
+        if extra_args:
+            cmd.extend(extra_args)
+        cmd.extend(['-ss', str(start_s), '-i', video_file, '-t', str(duration)])
         if wm_path:
             cmd.extend(['-i', wm_path])
 
@@ -541,10 +548,13 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
         success = await run_ffmpeg_with_progress(cmd, duration, bot, message, f"Trimming & Compressing...")
     else:
         # Fast trim without re-encoding
-        cmd = [
-            'ffmpeg', '-ss', str(start_s), '-i', video_file, '-t', str(duration),
+        cmd = ['ffmpeg']
+        if extra_args:
+            cmd.extend(extra_args)
+        cmd.extend([
+            '-ss', str(start_s), '-i', video_file, '-t', str(duration),
             '-c', 'copy', '-map', '0', '-y', output_file
-        ]
+        ])
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await process.communicate()
         success = process.returncode == 0
@@ -637,7 +647,7 @@ async def add_soft_subtitles(video_file, subtitle_file, output_directory):
         LOGGER.error(f"Add soft subtitles failed: {stderr.decode(errors='ignore')}")
     return output_file if os.path.exists(output_file) else None
 
-async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, message, settings=None):
+async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, message, settings=None, extra_args=None):
     if not os.path.exists(video_file) or not os.path.exists(subtitle_file): return None
 
     total_duration = get_duration(video_file)
@@ -648,9 +658,10 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else message.chat.id
     wm_path = await db.get_watermark(user_id)
 
-    # Hardsub requirements: original quality (high CRF), fast encoding (ultrafast preset)
-    v_crf = "18"
-    v_preset = "ultrafast"
+    # Use settings from DB
+    v_crf = s.get('crf', '30')
+    v_preset = s.get('preset', 'veryfast')
+    v_bitrate = s.get('video_bitrate')
 
     # Scaling logic - skip scaling by default to preserve original resolution
     # unless it's explicitly set to something other than "-2" (which usually means original/auto)
@@ -665,17 +676,22 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     else:
         filter_complex = f"[0:v]{video_filter},format={get_pix_fmt(s)}[v]"
 
-    cmd = [
-        'ffmpeg', '-i', video_file
-    ]
+    cmd = ['ffmpeg']
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.extend(['-i', video_file])
     if wm_path:
         cmd.extend(['-i', wm_path])
 
     cmd.extend([
         '-filter_complex', filter_complex,
         '-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?',
-        '-c:v', s['codec'], '-preset', v_preset, '-crf', v_crf
+        '-c:v', s['codec'], '-preset', v_preset
     ])
+    if v_bitrate:
+        cmd.extend(['-b:v', str(v_bitrate)])
+    else:
+        cmd.extend(['-crf', str(v_crf)])
 
     if s['codec'] in ['libx264', 'libx265']:
         cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])

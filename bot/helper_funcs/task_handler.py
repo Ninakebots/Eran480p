@@ -101,8 +101,8 @@ async def CompressVideo(bot, query, ffmpegcode, c_thumb=None):
         await sent_message.edit_text(Localisation.COMPRESS_START)
         c_start = time.time()
 
-        from bot.helper_funcs.ffmpeg import convert_video_custom
-        output_file = await convert_video_custom(video_path, DOWNLOAD_LOCATION, duration, bot, sent_message, ffmpegcode)
+        from bot.helper_funcs.converter import convert_video_custom_robust
+        output_file = await convert_video_custom_robust(video_path, DOWNLOAD_LOCATION, duration, bot, sent_message, ffmpegcode)
 
         encoding_time = TimeFormatter((time.time() - c_start) * 1000)
 
@@ -175,8 +175,8 @@ async def handle_all_resolutions_task(update, options):
         await sent_message.edit_text(Localisation.COMPRESS_START)
         c_start = time.time()
 
-        from bot.helper_funcs.ffmpeg import convert_video_all
-        output_files = await convert_video_all(video_path, DOWNLOAD_LOCATION, duration, bot, sent_message, user_settings)
+        from bot.helper_funcs.converter import convert_video_all_robust
+        output_files = await convert_video_all_robust(video_path, DOWNLOAD_LOCATION, duration, bot, sent_message, user_settings)
 
         encoding_time = TimeFormatter((time.time() - c_start) * 1000)
 
@@ -272,9 +272,10 @@ async def handle_subtitles_task(message, options, sub_type):
         user_settings = await get_user_data(user_id)
 
         await sent_message.edit_text(f"📝 A𝖽𝖽𝗂𝗇𝗀 {sub_type} 𝗌𝗎𝖻𝗍𝗂𝗍𝗅𝖾𝗌...⚙️")
-        from bot.helper_funcs.ffmpeg import add_soft_subtitles, add_hard_subtitles
+        from bot.helper_funcs.ffmpeg import add_soft_subtitles
+        from bot.helper_funcs.converter import add_hard_subtitles_robust
         if sub_type == "soft": output_path = await add_soft_subtitles(v_path, s_path, DOWNLOAD_LOCATION)
-        else: output_path = await add_hard_subtitles(v_path, s_path, DOWNLOAD_LOCATION, bot, sent_message, settings=user_settings)
+        else: output_path = await add_hard_subtitles_robust(v_path, s_path, DOWNLOAD_LOCATION, bot, sent_message, settings=user_settings)
 
         if output_path:
             await output_handler(bot=bot, update=message, output_path=output_path, input_path=v_path, sent_message=sent_message)
@@ -300,7 +301,8 @@ async def handle_trim_task(message, options):
         if not video_path: return await sent_message.edit_text("❌ Download failed.")
 
         await sent_message.edit_text(f"✂️ T𝗋𝗂𝗆𝗆𝗂𝗇𝗀 𝗏𝗂𝖽𝖾𝗈 ({start_t} - {end_t})...⚙️")
-        output_path = await cut_video(video_path, DOWNLOAD_LOCATION, start_t, end_t, bot, sent_message, settings=user_settings)
+        from bot.helper_funcs.converter import cut_video_robust
+        output_path = await cut_video_robust(video_path, DOWNLOAD_LOCATION, start_t, end_t, bot, sent_message, settings=user_settings)
 
         if output_path:
             await output_handler(bot=bot, update=message, output_path=output_path, input_path=video_path, sent_message=sent_message)
