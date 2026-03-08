@@ -34,15 +34,22 @@ def hbs(size):
 TASK_QUEUE = asyncio.Queue()
 
 async def task_worker():
-    """Sequential task worker to replace recursive add_task."""
+    """Concurrent task worker to replace sequential recursive add_task."""
     LOGGER.info("Starting Task Worker...")
     while True:
         task_info = await TASK_QUEUE.get()
+        task_id = task_info.get('id')
         try:
             # Check if task is still in data list (not cancelled)
-            if not any(d.get('id') == task_info.get('id') for d in data):
-                LOGGER.info(f"Task {task_info.get('id')} was cancelled, skipping...")
+            if not any(d.get('id') == task_id for d in data):
+                LOGGER.info(f"Task {task_id} was cancelled, skipping...")
                 continue
+
+            # Mark as processing
+            for d in data:
+                if d.get('id') == task_id:
+                    d['status'] = 'processing'
+                    break
 
             from bot.helper_funcs.task_handler import execute_task
             await execute_task(task_info)
@@ -51,15 +58,18 @@ async def task_worker():
             LOGGER.error(f"Error in task_worker: {e}\n{traceback.format_exc()}")
         finally:
             # Mark current task as done in the 'data' list for status monitoring
-            if data and data[0]['id'] == task_info['id']:
-                data.pop(0)
+            for i, d in enumerate(data):
+                if d.get('id') == task_id:
+                    data.pop(i)
+                    break
             TASK_QUEUE.task_done()
 
 # Start the worker task when the module is imported
 # This requires an existing event loop, usually handled in __main__.py
 # but we can provide a startup function.
 def start_task_worker():
-    asyncio.create_task(task_worker())
+    for _ in range(3):
+        asyncio.create_task(task_worker())
 
 async def add_to_queue(message: Message, task_type: str, options: dict = None):
     task_info = {
@@ -76,7 +86,7 @@ async def remove_from_queue(message_id: int):
     """Remove a pending task from the queue."""
     for i, task in enumerate(data):
         if task.get('message') and task.get('message').id == message_id:
-            if i == 0:
+            if task.get('status') == 'processing':
                 # Active task, don't remove (it's already processing)
                 return False
             data.pop(i)

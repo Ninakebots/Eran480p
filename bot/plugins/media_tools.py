@@ -211,6 +211,14 @@ async def rename_handler(client, message):
     await add_to_queue(reply, "rename", options={'new_name': new_name})
     await message.reply_text(f"⏰ Added rename task to queue.\nNew Name: `{new_name}`")
 
+@app.on_message(filters.incoming & filters.command([Command.ZIP, f"{Command.ZIP}@{BOT_USERNAME}"]) & is_auth)
+async def zip_cmd(client, message):
+    reply = message.reply_to_message
+    if not reply or not (reply.video or reply.audio or reply.document or reply.animation or reply.photo):
+        return await message.reply_text("❌ Reply to a file to zip it.")
+    await add_to_queue(reply, "zip")
+    await message.reply_text("⏰ Added zip task to queue.")
+
 @app.on_message(filters.incoming & (filters.video | filters.audio | filters.document) & is_auth, group=-1)
 async def collect_videos_for_merge(client, message):
     if not message.from_user:

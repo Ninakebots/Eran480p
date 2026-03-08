@@ -4,6 +4,8 @@ import time
 import datetime
 import json
 import re
+import zipfile
+import asyncio
 from bot import (
     DOWNLOAD_LOCATION,
     LOGGER,
@@ -63,6 +65,8 @@ async def execute_task(task_info):
         await handle_merge_task(message, options)
     elif task_type == 'rename':
         await handle_rename_task(message, options)
+    elif task_type == 'zip':
+        await handle_zip_task(message, options)
     else:
         LOGGER.warning(f"Unknown task type: {task_type}")
 
@@ -463,3 +467,49 @@ async def handle_merge_task(message, options):
     finally:
         for p in downloaded_files:
             if p and os.path.exists(p): os.remove(p)
+
+async def handle_zip_task(message, options):
+    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖿𝗂𝗅𝖾 𝗍𝗈 𝗓𝗂𝗉...📥", reply_to_message_id=message.id)
+    file_path = None
+    zip_path = None
+    try:
+        file_path = await bot.download_media(
+            message=message,
+            progress=progress_for_pyrogram,
+            progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time())
+        )
+        if not file_path:
+            return await sent_message.edit_text("❌ Download failed.")
+
+        await sent_message.edit_text("🗜️ Z𝗂𝗉𝗉𝗂𝗇𝗀 𝖿𝗂𝗅𝖾...⚙️")
+
+        zip_path = file_path + ".zip"
+
+        def zip_file(f_path, z_path):
+            with zipfile.ZipFile(z_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(f_path, os.path.basename(f_path))
+
+        await asyncio.to_thread(zip_file, file_path, zip_path)
+
+        if os.path.exists(zip_path):
+            await output_handler(
+                bot=bot,
+                update=message,
+                output_path=zip_path,
+                sent_message=sent_message,
+                task_type="zip"
+            )
+        else:
+            await sent_message.edit_text("❌ Zipping failed.")
+
+    except Exception as e:
+        LOGGER.error(f"Error in handle_zip_task: {e}")
+        try:
+            await sent_message.edit_text(f"❌ Error: {e}")
+        except:
+            pass
+    finally:
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+        if zip_path and os.path.exists(zip_path):
+            os.remove(zip_path)
