@@ -107,10 +107,10 @@ async def media_info(filepath):
             return {}
 
         if process.returncode != 0:
-            LOGGER.error(f"ffprobe error: {stderr.decode()}")
+            LOGGER.error(f"ffprobe error: {stderr.decode(errors='ignore')}")
             return {}
 
-        return json.loads(stdout.decode())
+        return json.loads(stdout.decode(errors='ignore'))
     except Exception as e:
         LOGGER.error(f"Error getting media info: {e}")
         return {}
@@ -226,7 +226,7 @@ async def run_ffmpeg_with_progress(cmd, total_duration, bot, message, descriptio
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=FFMPEG_TIMEOUT)
         success = process.returncode == 0
         if not success:
-            LOGGER.error(f"FFmpeg failed (PID: {process.pid}, Code: {process.returncode})\nSTDERR: {stderr.decode().strip()}")
+            LOGGER.error(f"FFmpeg failed (PID: {process.pid}, Code: {process.returncode})\nSTDERR: {stderr.decode(errors='ignore').strip()}")
     except asyncio.TimeoutError:
         LOGGER.error(f"FFmpeg timed out (PID: {process.pid})")
         process.kill()
@@ -426,7 +426,7 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
         s = settings_map[res]
         filters.append(f"[v{i+1}]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[out{res}]")
 
-    filter_complex = f"split={num_outputs}{v_labels}; " + "; ".join(filters)
+    filter_complex = f"[0:v]split={num_outputs}{v_labels}; " + "; ".join(filters)
 
     cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file, '-filter_complex', filter_complex]
 
@@ -549,7 +549,7 @@ async def extract_audio(video_file, output_directory):
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
-        LOGGER.error(f"Extract audio failed: {stderr.decode()}")
+        LOGGER.error(f"Extract audio failed: {stderr.decode(errors='ignore')}")
     return output_file if os.path.exists(output_file) else None
 
 async def extract_subtitles(video_file, output_directory):
@@ -560,7 +560,7 @@ async def extract_subtitles(video_file, output_directory):
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
-        LOGGER.error(f"Extract subtitles failed: {stderr.decode()}")
+        LOGGER.error(f"Extract subtitles failed: {stderr.decode(errors='ignore')}")
         # Fallback to .ass if srt fails or isn't compatible
         output_file = os.path.join(output_directory, f"sub_{int(time.time())}.ass")
         cmd = ['ffmpeg', '-i', video_file, '-map', '0:s:0', '-c:s', 'ass', '-y', output_file]
@@ -575,7 +575,7 @@ async def add_audio(video_file, audio_file, output_directory):
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
-        LOGGER.error(f"Add audio failed: {stderr.decode()}")
+        LOGGER.error(f"Add audio failed: {stderr.decode(errors='ignore')}")
     return output_file if os.path.exists(output_file) else None
 
 async def remove_audio(video_file, output_directory):
@@ -584,7 +584,7 @@ async def remove_audio(video_file, output_directory):
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
-        LOGGER.error(f"Remove audio failed: {stderr.decode()}")
+        LOGGER.error(f"Remove audio failed: {stderr.decode(errors='ignore')}")
     return output_file if os.path.exists(output_file) else None
 
 async def add_soft_subtitles(video_file, subtitle_file, output_directory):
@@ -593,7 +593,7 @@ async def add_soft_subtitles(video_file, subtitle_file, output_directory):
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
-        LOGGER.error(f"Add soft subtitles failed: {stderr.decode()}")
+        LOGGER.error(f"Add soft subtitles failed: {stderr.decode(errors='ignore')}")
     return output_file if os.path.exists(output_file) else None
 
 async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, message, settings=None):
@@ -655,7 +655,7 @@ async def remove_subtitles(video_file, output_directory):
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     if process.returncode != 0:
-        LOGGER.error(f"Remove subtitles failed (code {process.returncode}): {stderr.decode()}")
+        LOGGER.error(f"Remove subtitles failed (code {process.returncode}): {stderr.decode(errors='ignore')}")
     return output_file if os.path.exists(output_file) else None
 
 # --- Thumbnail & Screenshot ---
