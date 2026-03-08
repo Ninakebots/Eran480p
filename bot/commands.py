@@ -44,3 +44,4 @@ class Command:
     REMWATERMARK = "removewatermark"
     VIEWWATERMARK = "viewwatermark"
     ZIP = "zip"
+    BATCH = "batch"

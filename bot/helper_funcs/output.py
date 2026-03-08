@@ -88,19 +88,36 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
             caption = custom_caption.replace("{file_name}", file_name).replace("{file_size}", file_size).replace("{download_time}", d_time).replace("{encoding_time}", e_time)
         else:
             if task_type == "rename":
-                caption = f"✅ **File Renamed Successfully!**\n\n📁 **Name:** `{file_name}`\n⚖️ **Size:** `{file_size}`"
+                caption = f"✅ **{style_text('File Renamed Successfully!')}**\n\n📁 **{style_text('Name:')}** `{file_name}`\n⚖️ **{style_text('Size:')}** `{file_size}`"
             elif task_type == "extract_audio":
-                caption = f"🎧 **Audio Extracted Successfully!**\n\n📁 **Name:** `{file_name}`\n⚖️ **Size:** `{file_size}`"
+                caption = f"🎧 **{style_text('Audio Extracted Successfully!')}**\n\n📁 **{style_text('Name:')}** `{file_name}`\n⚖️ **{style_text('Size:')}** `{file_size}`"
             elif task_type == "extract_sub":
-                caption = f"📝 **Subtitles Extracted Successfully!**\n\n📁 **Name:** `{file_name}`\n⚖️ **Size:** `{file_size}`"
+                caption = f"📝 **{style_text('Subtitles Extracted Successfully!')}**\n\n📁 **{style_text('Name:')}** `{file_name}`\n⚖️ **{style_text('Size:')}** `{file_size}`"
+            elif task_type == "zip":
+                caption = f"🗜️ **{style_text('File Zipped Successfully!')}**\n\n📁 **{style_text('Name:')}** `{file_name}`\n⚖️ **{style_text('Size:')}** `{file_size}`"
             else:
-                caption = Localisation.COMPRESS_SUCCESS.replace('{}', d_time, 1).replace('{}', e_time, 1)
+                from bot.helper_funcs.ffmpeg import get_encoding_settings
+                s = await get_encoding_settings(user_settings)
+
+                caption = (
+                    f"✨ **{style_text('Video Encoded Successfully!')}** ✨\n\n"
+                    f"📁 **{style_text('Name:')}** `{file_name}`\n"
+                    f"⚖️ **{style_text('Size:')}** `{file_size}`\n\n"
+                    f"<blockquote>"
+                    f"<b>🎥 {style_text('Codec:')}</b> {s['codec']} ({s['bits']})\n"
+                    f"<b>📊 {style_text('CRF:')}</b> {s['crf']} | <b>⚡ {style_text('Preset:')}</b> {s['preset']}\n"
+                    f"<b>📥 {style_text('Download Time:')}</b> {d_time}\n"
+                    f"<b>📀 {style_text('Encoding Time:')}</b> {e_time}\n"
+                    f"<b>📤 {style_text('Upload Time:')}</b> {{}}"
+                    f"</blockquote>\n\n"
+                    f"<b>{style_text('Powered By @Team_Wine')}</b>"
+                )
 
         # Upload
         upload = None
         if upload_dest == "gofile":
             try:
-                await sent_message.edit_text("📤 **Uploading to Gofile.io...**")
+                await sent_message.edit_text(f"📤 **{style_text('Uploading to Gofile.io...')}**")
                 download_url = await upload_gofile(output_path, token=GOFILE_TOKEN)
                 if download_url:
                     u_time = TimeFormatter((time.time() - u_start) * 1000)
@@ -108,17 +125,11 @@ async def output_handler(bot, update, output_path, download_time=None, encoding_
                     if custom_caption:
                         text = caption.replace("{upload_time}", u_time) + f"\n\n🔗 **Download Link:** {download_url}"
                     else:
-                        text = (
-                            f"✅ **{style_text('File Processed & Uploaded to Gofile!')}**\n\n"
-                            f"📁 **{style_text('File Name:')}** `{file_name}`\n"
-                            f"⚖️ **{style_text('Size:')}** `{file_size}`\n"
-                            f"🔗 **{style_text('Download Link:')}** {download_url}\n\n"
-                            f"<blockquote>"
-                            f"<b>📥 {style_text('Download Time:')}</b> {d_time}\n"
-                            f"<b>📀 {style_text('Encoding Time:')}</b> {e_time}\n"
-                            f"<b>📤 {style_text('Upload Time:')}</b> {u_time}"
-                            f"</blockquote>"
-                        )
+                        if "{}" in caption:
+                             text = caption.replace("{}", u_time, 1) + f"\n\n🔗 **Download Link:** {download_url}"
+                        else:
+                             text = caption + f"\n\n🔗 **{style_text('Download Link:')}** {download_url}"
+
                     await bot.send_message(
                         chat_id=update.chat.id,
                         text=text,

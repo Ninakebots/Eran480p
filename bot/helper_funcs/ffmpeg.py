@@ -332,7 +332,7 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
 
     if has_video:
         if wm_path:
-             filter_str = f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base];[1:v]scale=iw*0.2:-1[wm];[base][wm]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[v]"
+             filter_str = f"[1:v][0:v]scale2ref=iw*0.2:-1[wm][v_ref];[v_ref]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base];[base][wm]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[v]"
         else:
              filter_str = f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[v]"
 
@@ -443,10 +443,15 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
 
     filter_complex = f"[0:v]split={num_outputs}{v_labels}; "
     if wm_path:
-        filter_complex += f"[1:v]split={num_outputs}{''.join([f'[wmv{i+1}]' for i in range(num_outputs)])}; "
+        # Scale watermark relative to input video once, then split it
+        filter_complex = f"[1:v][0:v]scale2ref=iw*0.2:-1[wm_scaled][v_ref];[v_ref]split={num_outputs}{v_labels}; [wm_scaled]split={num_outputs}{''.join([f'[wm{i+1}]' for i in range(num_outputs)])}; "
         for i, res in enumerate(settings_map):
             s = settings_map[res]
-            filters.append(f"[v{i+1}]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base{res}];[wmv{i+1}]scale=iw*0.2:-1[wm{res}];[base{res}][wm{res}]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[out{res}]")
+            filters.append(f"[v{i+1}]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base{res}];[base{res}][wm{i+1}]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[out{res}]")
+    else:
+        for i, res in enumerate(settings_map):
+            s = settings_map[res]
+            filters.append(f"[v{i+1}]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[out{res}]")
 
     filter_complex += "; ".join(filters)
 
@@ -504,7 +509,7 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
 
         if has_video:
             if wm_path:
-                 filter_str = f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base];[1:v]scale=iw*0.2:-1[wm];[base][wm]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[v]"
+                 filter_str = f"[1:v][0:v]scale2ref=iw*0.2:-1[wm][v_ref];[v_ref]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base];[base][wm]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[v]"
             else:
                  filter_str = f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[v]"
 
@@ -655,9 +660,10 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
          video_filter = f"subtitles='{escaped_path}':force_style='FontSize=16'"
 
     if wm_path:
-        video_filter += f"[sub];[1:v]scale=iw*0.2:-1[wm];[sub][wm]overlay=main_w-overlay_w-10:10"
-
-    video_filter += f",format={get_pix_fmt(s)}[v]"
+        # Hardsub with watermark: use scale2ref
+        filter_complex = f"[1:v][0:v]scale2ref=iw*0.2:-1[wm][v_ref];[v_ref]{video_filter}[sub];[sub][wm]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[v]"
+    else:
+        filter_complex = f"[0:v]{video_filter},format={get_pix_fmt(s)}[v]"
 
     cmd = [
         'ffmpeg', '-i', video_file
@@ -666,7 +672,7 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
         cmd.extend(['-i', wm_path])
 
     cmd.extend([
-        '-filter_complex', f"[0:v]{video_filter}",
+        '-filter_complex', filter_complex,
         '-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?',
         '-c:v', s['codec'], '-preset', v_preset, '-crf', v_crf
     ])

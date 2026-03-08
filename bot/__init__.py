@@ -35,6 +35,8 @@ preset = []
 codec = []
 pid_list = []
 merge_sessions = {}
+zip_sessions = {}
+batch_sessions = {}
 subtitle_sessions = {}
 app = Client(
         SESSION_NAME,
