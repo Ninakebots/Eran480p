@@ -45,21 +45,23 @@ async def authlist_handler(client, message):
     db_authorized = await db.get_all_authorized_chats()
 
     # Combine with hardcoded lists
-    all_auth = set(AUTH_USERS + AUTH_CHATS + db_authorized)
+    # Note: AUTH_USERS and AUTH_CHATS are lists (processed in bot/__init__.py)
+    all_auth = set(AUTH_USERS) | set(AUTH_CHATS) | set(db_authorized)
 
     if not all_auth:
         return await message.reply_text("📋 **No authorized IDs found.**")
 
     text = "📋 **Authorized IDs:**\n\n"
-    for i, auth_id in enumerate(all_auth):
-        status = ""
+    for i, auth_id in enumerate(sorted(all_auth)):
+        status = []
         if auth_id in AUTH_USERS:
-            status = " (Admin)"
-        elif auth_id in AUTH_CHATS:
-            status = " (Hardcoded Chat)"
-        else:
-            status = " (Database)"
+            status.append("Admin")
+        if auth_id in AUTH_CHATS:
+            status.append("Hardcoded Chat")
+        if auth_id in db_authorized:
+            status.append("Database")
 
-        text += f"{i+1}. `{auth_id}`{status}\n"
+        status_str = f" ({', '.join(status)})" if status else ""
+        text += f"{i+1}. `{auth_id}`{status_str}\n"
 
     await message.reply_text(text)

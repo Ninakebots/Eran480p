@@ -130,7 +130,7 @@ async def savethumb_handler(client, message):
     await client.download_media(message=reply.photo, file_name=thumb_path)
     await message.reply_text("✅ Custom thumbnail saved.")
 
-@app.on_message(filters.incoming & filters.command([Command.DELTHUMB, f"{Command.DELTHUMB}@{BOT_USERNAME}"]) & is_auth)
+@app.on_message(filters.incoming & filters.command([Command.DELTHUMB, "remthumb", "remove_thumbnail", f"{Command.DELTHUMB}@{BOT_USERNAME}"]) & is_auth)
 async def delthumb_handler(client, message):
     if not message.from_user:
         return
@@ -141,6 +141,61 @@ async def delthumb_handler(client, message):
         await message.reply_text("✅ Custom thumbnail deleted.")
     else:
         await message.reply_text("❌ No custom thumbnail found.")
+
+@app.on_message(filters.incoming & filters.command([Command.VIEWTHUMB, f"{Command.VIEWTHUMB}@{BOT_USERNAME}"]) & is_auth)
+async def viewthumb_handler(client, message):
+    if not message.from_user:
+        return
+    user_id = message.from_user.id
+    thumb_path = os.path.join("thumbnails", f"{user_id}.jpg")
+    if os.path.exists(thumb_path):
+        await message.reply_photo(photo=thumb_path, caption="🖼 **Your Current Custom Thumbnail**")
+    else:
+        await message.reply_text("❌ No custom thumbnail found.")
+
+@app.on_message(filters.incoming & filters.command([Command.SETWATERMARK, f"{Command.SETWATERMARK}@{BOT_USERNAME}"]) & is_auth)
+async def setwatermark_handler(client, message):
+    if not message.from_user:
+        return
+    user_id = message.from_user.id
+    reply = message.reply_to_message
+
+    if not reply or not (reply.photo or reply.document):
+        return await message.reply_text("❌ Reply to a photo or document (transparent PNG recommended) to set it as watermark.")
+
+    media = reply.photo or reply.document
+    if reply.document and not (reply.document.mime_type and reply.document.mime_type.startswith("image/")):
+        return await message.reply_text("❌ The replied document must be an image.")
+
+    wm_dir = "watermarks"
+    os.makedirs(wm_dir, exist_ok=True)
+    wm_path = os.path.join(wm_dir, f"{user_id}.png")
+
+    await client.download_media(message=media, file_name=wm_path)
+    await message.reply_text("✅ Custom watermark saved.")
+
+@app.on_message(filters.incoming & filters.command([Command.REMWATERMARK, "remwatermark", f"{Command.REMWATERMARK}@{BOT_USERNAME}"]) & is_auth)
+async def remwatermark_handler(client, message):
+    if not message.from_user:
+        return
+    user_id = message.from_user.id
+    wm_path = os.path.join("watermarks", f"{user_id}.png")
+    if os.path.exists(wm_path):
+        os.remove(wm_path)
+        await message.reply_text("✅ Custom watermark deleted.")
+    else:
+        await message.reply_text("❌ No custom watermark found.")
+
+@app.on_message(filters.incoming & filters.command([Command.VIEWWATERMARK, f"{Command.VIEWWATERMARK}@{BOT_USERNAME}"]) & is_auth)
+async def viewwatermark_handler(client, message):
+    if not message.from_user:
+        return
+    user_id = message.from_user.id
+    wm_path = os.path.join("watermarks", f"{user_id}.png")
+    if os.path.exists(wm_path):
+        await message.reply_photo(photo=wm_path, caption="🖼 **Your Current Custom Watermark**")
+    else:
+        await message.reply_text("❌ No custom watermark found.")
 
 @app.on_message(filters.incoming & filters.command([Command.RENAME, f"{Command.RENAME}@{BOT_USERNAME}"]) & is_auth)
 async def rename_handler(client, message):

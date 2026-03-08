@@ -312,6 +312,9 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
     base_name = os.path.splitext(os.path.basename(video_file))[0]
     s = await get_encoding_settings(settings)
 
+    user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else message.chat.id
+    wm_path = await db.get_watermark(user_id)
+
     # Determine extension based on codec
     ext = ".mp4" if s['codec'] in ['libx264', 'libx265'] else ".mkv"
     output_file = os.path.join(output_directory, f"[Encoded] {base_name}{ext}")
@@ -324,8 +327,16 @@ async def convert_video(video_file, output_directory, total_time, bot, message, 
         '-i', video_file
     ]
 
+    if wm_path:
+        cmd.extend(['-i', wm_path])
+
     if has_video:
-        cmd.extend(['-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[v]"])
+        if wm_path:
+             filter_str = f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base];[1:v]scale=iw*0.2:-1[wm];[base][wm]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[v]"
+        else:
+             filter_str = f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[v]"
+
+        cmd.extend(['-filter_complex', filter_str])
         cmd.extend(['-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?'])
         cmd.extend(['-c:v', s['codec']])
         if s.get('video_bitrate'):
@@ -410,6 +421,9 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
     os.makedirs(output_directory, exist_ok=True)
     base_name = os.path.splitext(os.path.basename(video_file))[0]
 
+    user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else message.chat.id
+    wm_path = await db.get_watermark(user_id)
+
     s480 = await get_encoding_settings(res_key="480p")
     s720 = await get_encoding_settings(res_key="720p")
     s1080 = await get_encoding_settings(res_key="1080p")
@@ -424,11 +438,23 @@ async def convert_video_all(video_file, output_directory, total_time, bot, messa
 
     for i, res in enumerate(settings_map):
         s = settings_map[res]
-        filters.append(f"[v{i+1}]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[out{res}]")
+        if not wm_path:
+             filters.append(f"[v{i+1}]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[out{res}]")
 
-    filter_complex = f"[0:v]split={num_outputs}{v_labels}; " + "; ".join(filters)
+    filter_complex = f"[0:v]split={num_outputs}{v_labels}; "
+    if wm_path:
+        filter_complex += f"[1:v]split={num_outputs}{''.join([f'[wmv{i+1}]' for i in range(num_outputs)])}; "
+        for i, res in enumerate(settings_map):
+            s = settings_map[res]
+            filters.append(f"[v{i+1}]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base{res}];[wmv{i+1}]scale=iw*0.2:-1[wm{res}];[base{res}][wm{res}]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[out{res}]")
 
-    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file, '-filter_complex', filter_complex]
+    filter_complex += "; ".join(filters)
+
+    cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'warning', '-i', video_file]
+    if wm_path:
+        cmd.extend(['-i', wm_path])
+
+    cmd.extend(['-filter_complex', filter_complex])
 
     for res, s in settings_map.items():
         cmd.extend(['-map', f'[out{res}]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?'])
@@ -467,12 +493,22 @@ async def cut_video(video_file, output_directory, start_time, end_time, bot, mes
         s = await get_encoding_settings(settings)
         has_video = validate_video_file(video_file)
 
+        user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else message.chat.id
+        wm_path = await db.get_watermark(user_id)
+
         cmd = [
             'ffmpeg', '-ss', str(start_s), '-i', video_file, '-t', str(duration)
         ]
+        if wm_path:
+            cmd.extend(['-i', wm_path])
 
         if has_video:
-            cmd.extend(['-filter_complex', f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[v]"])
+            if wm_path:
+                 filter_str = f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[base];[1:v]scale=iw*0.2:-1[wm];[base][wm]overlay=main_w-overlay_w-10:10,format={get_pix_fmt(s)}[v]"
+            else:
+                 filter_str = f"[0:v]scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease,format={get_pix_fmt(s)}[v]"
+
+            cmd.extend(['-filter_complex', filter_str])
             cmd.extend(['-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?'])
             cmd.extend(['-c:v', s['codec'], '-crf', s['crf'], '-preset', s['preset']])
             if s['codec'] == 'libx264':
@@ -604,30 +640,36 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     s = await get_encoding_settings(settings)
     escaped_path = escape_ffmpeg_path(subtitle_file)
 
-    # If user wants to keep quality "same as old one", we should use lower CRF
-    # and potentially keep original resolution if not explicitly scaling.
-    v_crf = s['crf']
-    if safe_int_convert(v_crf) > 18:
-        v_crf = "18" # High quality default for hard-subbing
+    user_id = message.from_user.id if hasattr(message, 'from_user') and message.from_user else message.chat.id
+    wm_path = await db.get_watermark(user_id)
 
-    # Scaling logic - if resolution is not specifically set by user, we can skip it
-    # to maintain "same as old one" resolution.
-    video_filter = f"subtitles='{escaped_path}':force_style='FontSize=16',format={get_pix_fmt(s)}"
+    # Hardsub requirements: original quality (high CRF), fast encoding (ultrafast preset)
+    v_crf = "18"
+    v_preset = "ultrafast"
 
-    # If settings came from a specific command (like /480p), s['res_h'] will be "480"
-    # If it's a generic add_hard_sub, we might want to keep original.
-    # We'll check if res_h is significantly different from a likely "auto" value.
+    # Scaling logic - skip scaling by default to preserve original resolution
+    # unless it's explicitly set to something other than "-2" (which usually means original/auto)
     if s['res_h'] not in ["-2", "None", None, "0"]:
-         video_filter = f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease," + video_filter
+         video_filter = f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[scaled];[scaled]subtitles='{escaped_path}':force_style='FontSize=16'"
+    else:
+         video_filter = f"subtitles='{escaped_path}':force_style='FontSize=16'"
+
+    if wm_path:
+        video_filter += f"[sub];[1:v]scale=iw*0.2:-1[wm];[sub][wm]overlay=main_w-overlay_w-10:10"
+
+    video_filter += f",format={get_pix_fmt(s)}[v]"
 
     cmd = [
-        'ffmpeg', '-i', video_file,
-        '-filter_complex', f"[0:v]{video_filter}[v]",
-        '-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?',
-        '-c:v', s['codec'], '-preset', s['preset'],
+        'ffmpeg', '-i', video_file
     ]
-    if s.get('video_bitrate'): cmd.extend(['-b:v', str(s['video_bitrate'])])
-    else: cmd.extend(['-crf', v_crf])
+    if wm_path:
+        cmd.extend(['-i', wm_path])
+
+    cmd.extend([
+        '-filter_complex', f"[0:v]{video_filter}",
+        '-map', '[v]', '-map', '0:a?', '-map', '0:s?', '-map', '0:d?',
+        '-c:v', s['codec'], '-preset', v_preset, '-crf', v_crf
+    ])
 
     if s['codec'] in ['libx264', 'libx265']:
         cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
