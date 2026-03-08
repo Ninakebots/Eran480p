@@ -142,6 +142,20 @@ async def delthumb_handler(client, message):
     else:
         await message.reply_text("❌ No custom thumbnail found.")
 
+@app.on_message(filters.incoming & filters.command([Command.RENAME, f"{Command.RENAME}@{BOT_USERNAME}"]) & is_auth)
+async def rename_handler(client, message):
+    reply = message.reply_to_message
+    if not reply or not (reply.video or reply.audio or reply.document or reply.animation):
+        return await message.reply_text("❌ Reply to a file to rename it.")
+
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        return await message.reply_text("❌ Usage: `/rename new_file_name.mp4`")
+
+    new_name = args[1]
+    await add_to_queue(reply, "rename", options={'new_name': new_name})
+    await message.reply_text(f"⏰ Added rename task to queue.\nNew Name: `{new_name}`")
+
 @app.on_message(filters.incoming & (filters.video | filters.audio | filters.document) & is_auth, group=-1)
 async def collect_videos_for_merge(client, message):
     if not message.from_user:

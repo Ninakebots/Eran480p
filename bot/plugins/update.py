@@ -2,12 +2,12 @@ from pyrogram import filters
 from bot import app, BOT_USERNAME
 from bot.commands import Command
 from bot.helper_funcs.update import check_for_updates, perform_update, restart_bot
-from bot.helper_funcs.utils import is_personal_auth
+from bot.helper_funcs.utils import is_auth
 import logging
 
 LOGGER = logging.getLogger(__name__)
 
-@app.on_message(filters.incoming & filters.command([Command.UPDATE, f"{Command.UPDATE}@{BOT_USERNAME}"]) & is_personal_auth)
+@app.on_message(filters.incoming & filters.command([Command.UPDATE, f"{Command.UPDATE}@{BOT_USERNAME}"]) & is_auth)
 async def update_handler(client, message):
 
     args = message.text.split()

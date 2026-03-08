@@ -61,6 +61,8 @@ async def execute_task(task_info):
         await handle_mediainfo_task(message, options)
     elif task_type == 'merge':
         await handle_merge_task(message, options)
+    elif task_type == 'rename':
+        await handle_rename_task(message, options)
     else:
         LOGGER.warning(f"Unknown task type: {task_type}")
 
@@ -351,6 +353,48 @@ async def handle_mediainfo_task(message, options):
         if video_path and os.path.exists(video_path): os.remove(video_path)
     except Exception as e:
         LOGGER.error(f"Error in handle_mediainfo_task: {e}")
+        await sent_message.edit_text(f"❌ Error: {e}")
+
+async def handle_rename_task(message, options):
+    new_name = options.get('new_name')
+    if not new_name:
+        return await bot.send_message(chat_id=message.chat.id, text="❌ No new name provided for rename.")
+
+    sent_message = await bot.send_message(chat_id=message.chat.id, text="Dᴏᴡɴʟᴏᴀᴅɪɴɢ 𝖿𝗂𝗅𝖾 𝗍𝗈 𝗋𝖾𝗇𝖺𝗆𝖾...📥", reply_to_message_id=message.id)
+    try:
+        file_path = await bot.download_media(
+            message=message,
+            progress=progress_for_pyrogram,
+            progress_args=(bot, "Dᴏᴡɴʟᴏᴀᴅɪɴɢ...📥", sent_message, time.time())
+        )
+        if not file_path:
+            return await sent_message.edit_text("❌ Download failed.")
+
+        # Sanitize new_name to prevent path traversal
+        new_name = os.path.basename(new_name)
+
+        # Ensure new_name has correct extension if not provided
+        _, original_ext = os.path.splitext(file_path)
+        if not os.path.splitext(new_name)[1]:
+            new_name += original_ext
+
+        new_path = os.path.join(DOWNLOAD_LOCATION, new_name)
+
+        # Handle potential name collisions
+        if os.path.exists(new_path):
+            new_path = os.path.join(DOWNLOAD_LOCATION, f"{int(time.time())}_{new_name}")
+
+        os.rename(file_path, new_path)
+
+        await output_handler(
+            bot=bot,
+            update=message,
+            output_path=new_path,
+            sent_message=sent_message
+        )
+
+    except Exception as e:
+        LOGGER.error(f"Error in handle_rename_task: {e}")
         await sent_message.edit_text(f"❌ Error: {e}")
 
 async def handle_merge_task(message, options):

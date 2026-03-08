@@ -106,6 +106,17 @@ class Database:
             LOGGER.error(f"Error checking authorization for chat {chat_id}: {e}")
             return False
 
+    async def get_all_authorized_chats(self) -> list:
+        if self.auth is None:
+            return []
+        try:
+            cursor = self.auth.find({})
+            chats = await cursor.to_list(length=None)
+            return [chat['chat_id'] for chat in chats]
+        except Exception as e:
+            LOGGER.error(f"Error getting all authorized chats: {e}")
+            return []
+
     async def get_global_settings(self, res_key: str) -> dict:
         if self.users is None:
             return {}

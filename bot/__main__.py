@@ -4,7 +4,7 @@ import time
 import logging
 from pyrogram import Client, filters
 from pyrogram.handlers import MessageHandler, CallbackQueryHandler
-from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
+from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message, BotCommand
 
 from bot import (
     APP_ID, API_HASH, AUTH_USERS, DOWNLOAD_LOCATION, LOGGER, TG_BOT_TOKEN, BOT_USERNAME, SESSION_NAME, data, app, AUTH_CHATS, 
@@ -129,13 +129,11 @@ if __name__ == "__main__":
             await message.reply_text("🔒 Admin Only")
 
 
-    @app.on_message(filters.incoming & filters.command(["restart", f"restart@{BOT_USERNAME}"]))
+    @app.on_message(filters.incoming & filters.command([Command.RESTART, f"{Command.RESTART}@{BOT_USERNAME}"]) & is_auth)
     async def restarter(app, message):
-        if message.chat.id in AUTH_USERS:
-            await message.reply_text("♻️ Restarting...")
-            quit(1)
-        else:
-            await message.reply_text("🔒 Admin Only")
+        await message.reply_text("♻️ Restarting...")
+        from bot.helper_funcs.update import restart_bot
+        restart_bot()
 
     @app.on_message(filters.incoming & filters.command(["clear", f"clear@{BOT_USERNAME}"]))
     async def clear_queue(app, message):
@@ -281,6 +279,49 @@ if __name__ == "__main__":
     async def startup():
         await init_bot()
         start_task_worker()
+
+        # Set bot commands
+        commands = [
+            BotCommand(Command.START, "Check bot status"),
+            BotCommand(Command.COMPRESS, "Compress video"),
+            BotCommand(Command.P480, "Compress to 480p"),
+            BotCommand(Command.P720, "Compress to 720p"),
+            BotCommand(Command.P1080, "Compress to 1080p"),
+            BotCommand(Command.ALL, "Compress to all resolutions"),
+            BotCommand(Command.RENAME, "Rename file"),
+            BotCommand(Command.MERGE, "Merge media files"),
+            BotCommand(Command.MEDIAINFO, "Get media info"),
+            BotCommand(Command.TRIM, "Trim video"),
+            BotCommand(Command.EXTRACT_AUDIO, "Extract audio"),
+            BotCommand(Command.EXTRACT_SUB, "Extract subtitles"),
+            BotCommand(Command.ADDAUDIO, "Add audio to video"),
+            BotCommand(Command.REMAUDIO, "Remove audio from video"),
+            BotCommand(Command.SOFTSUB, "Add soft subtitles"),
+            BotCommand(Command.HARDSUB, "Add hard subtitles"),
+            BotCommand(Command.RSUB, "Remove subtitles"),
+            BotCommand(Command.SAVETHUMB, "Save custom thumbnail"),
+            BotCommand(Command.DELTHUMB, "Delete custom thumbnail"),
+            BotCommand(Command.SETMEDIA, "Set preferred media type"),
+            BotCommand(Command.SETUPLOAD, "Set upload destination"),
+            BotCommand(Command.LIST, "Show active queue"),
+            BotCommand(Command.CANCEL, "Cancel active task"),
+            BotCommand(Command.STATUS, "Check bot status"),
+            BotCommand(Command.SYSINFO, "Show system info"),
+            BotCommand(Command.SPEEDTEST, "Run speed test"),
+            BotCommand(Command.PING, "Check bot latency"),
+            BotCommand(Command.UPDATE, "Update bot (Auth)"),
+            BotCommand(Command.RESTART, "Restart bot (Auth)"),
+            BotCommand(Command.AUTHLIST, "Show authorized IDs (Admin)"),
+            BotCommand("authorize", "Authorize chat/user (Admin)"),
+            BotCommand("unauthorize", "Unauthorize chat/user (Admin)"),
+            BotCommand(Command.HELP, "Show help message"),
+        ]
+        try:
+            await app.set_bot_commands(commands)
+            LOGGER.info("Bot commands set successfully!")
+        except Exception as e:
+            LOGGER.error(f"Failed to set bot commands: {e}")
+
         LOGGER.info("Bot started successfully!")
     
     app.loop.run_until_complete(startup())
