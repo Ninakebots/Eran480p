@@ -52,20 +52,24 @@ class MenuHandler:
         if "|global|" in context:
             res_key = context.split('|')[-1]
             user_settings = await get_global_settings(res_key)
+            title = f"⚙️ **Global Settings ({res_key})**"
         else:
             user_settings = await get_user_data(user_id)
+            title = "⚙️ **Personal Settings**"
 
         codec = user_settings.get('codec', 'libsvtav1')
         crf = user_settings.get('crf', '24')
         preset = user_settings.get('preset', 'veryfast')
         audio = user_settings.get('audio_b', '128k')
+        res = user_settings.get('resolution', '480p')
 
         text = (
-            "⚙️ **Personal Settings**\n\n"
+            f"{title}\n\n"
             f"🎥 **Codec:** `{codec}`\n"
             f"📊 **CRF:** `{crf}`\n"
             f"⚡ **Preset:** `{preset}`\n"
-            f"🎵 **Audio Bitrate:** `{audio}`\n\n"
+            f"🎵 **Audio Bitrate:** `{audio}`\n"
+            f"🎬 **Resolution:** `{res}`\n\n"
             "Select a setting to change it:"
         )
         keyboard = InlineKeyboardMarkup([
@@ -73,7 +77,8 @@ class MenuHandler:
              InlineKeyboardButton("📊 CRF", callback_data=f"set_crf{context}")],
             [InlineKeyboardButton("⚡ Preset", callback_data=f"set_pre{context}"),
              InlineKeyboardButton("🎵 Audio", callback_data=f"set_aud{context}")],
-            [InlineKeyboardButton("❌ Close", callback_data="close_menu")]
+            [InlineKeyboardButton("🎬 Resolution", callback_data=f"set_res{context}"),
+             InlineKeyboardButton("❌ Close", callback_data="close_menu")]
         ])
         return text, keyboard
 
@@ -100,10 +105,7 @@ class MenuHandler:
                 row.append(InlineKeyboardButton(options[i+1], callback_data=f"upd_res_{options[i+1]}{context}"))
             buttons.append(row)
 
-        if not context:
-            buttons.append([InlineKeyboardButton("⬅️ Back", callback_data="back_to_media")])
-        else:
-            buttons.append([InlineKeyboardButton("❌ Close", callback_data="close_menu")])
+        buttons.append([InlineKeyboardButton("⬅️ Back", callback_data=f"settings_menu{context}")])
         return text, InlineKeyboardMarkup(buttons)
 
     async def set_crf_menu(self, user_id, context=""):

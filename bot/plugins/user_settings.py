@@ -190,17 +190,7 @@ async def update_encoding_setting_handler(client, callback_query: CallbackQuery)
                 await callback_query.answer(f"✅ {key} updated to {value}")
 
     # Route back to appropriate menu
-    if key_short == "res" and "global" not in context.split('|'):
-        # Route back to media settings if context is empty (general settings)
-        if not context:
-            from bot.plugins.utility_handlers import set_media_callback_handler
-            callback_query.data = "back_to_media"
-            await set_media_callback_handler(client, callback_query)
-        else:
-            await callback_query.answer(f"✅ Default resolution set to {value}")
-            await callback_query.message.delete()
-    else:
-        text, keyboard = await menu_handler.settings_menu(user_id, context)
-        await callback_query.message.edit_text(text, reply_markup=keyboard)
+    text, keyboard = await menu_handler.settings_menu(user_id, context)
+    await callback_query.message.edit_text(text, reply_markup=keyboard)
 
 

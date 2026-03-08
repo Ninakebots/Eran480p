@@ -218,10 +218,24 @@ async def _process_media_handler(message, description, processing_func, *func_ar
         if not video_path: return await sent_message.edit_text("❌ Download failed.")
 
         await sent_message.edit_text(f"{description}...⚙️")
-        output_path = await processing_func(video_path, DOWNLOAD_LOCATION, *func_args, **func_kwargs)
+        result = await processing_func(video_path, DOWNLOAD_LOCATION, *func_args, **func_kwargs)
 
-        if output_path:
-            await output_handler(bot=bot, update=message, output_path=output_path, input_path=video_path, sent_message=sent_message, task_type=task_type)
+        if result:
+            if isinstance(result, list):
+                for i, out_path in enumerate(result):
+                    # For multiple files, we only want to delete the input_path after the last one
+                    current_input_path = video_path if i == len(result) - 1 else None
+                    # We also only want to delete the sent_message after the last one (or maybe not at all if we want to show multiple status)
+                    # output_handler deletes sent_message by default, so we pass None for subsequent ones
+                    current_sent_message = sent_message if i == 0 else None
+
+                    await output_handler(
+                        bot=bot, update=message, output_path=out_path,
+                        input_path=current_input_path, sent_message=current_sent_message,
+                        task_type=task_type
+                    )
+            else:
+                await output_handler(bot=bot, update=message, output_path=result, input_path=video_path, sent_message=sent_message, task_type=task_type)
         else:
             await sent_message.edit_text("❌ Processing failed.")
             if video_path and os.path.exists(video_path): os.remove(video_path)
