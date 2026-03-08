@@ -595,30 +595,56 @@ async def merge_videos(video_list, output_path, bot, message, total_duration):
 
 async def extract_audio(video_file, output_directory):
     if not os.path.exists(video_file): return None
-    output_file = os.path.join(output_directory, f"audio_{int(time.time())}.mp3")
-    cmd = ['ffmpeg', '-i', video_file, '-vn', '-acodec', 'libmp3lame', '-q:a', '2', '-map_metadata', '-1', '-y', output_file]
-    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        LOGGER.error(f"Extract audio failed: {stderr.decode(errors='ignore')}")
-    return output_file if os.path.exists(output_file) else None
+    info = await media_info(video_file)
+    audio_streams = [s for s in info.get('streams', []) if s.get('codec_type') == 'audio']
+
+    if not audio_streams:
+        return None
+
+    extracted_files = []
+    for stream in audio_streams:
+        index = stream.get('index')
+        lang = stream.get('tags', {}).get('language', f'stream_{index}')
+        output_file = os.path.join(output_directory, f"audio_{lang}_{int(time.time())}_{index}.mp3")
+        cmd = ['ffmpeg', '-i', video_file, '-map', f'0:{index}', '-acodec', 'libmp3lame', '-q:a', '2', '-map_metadata', '-1', '-y', output_file]
+        process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        await process.communicate()
+        if os.path.exists(output_file):
+            extracted_files.append(output_file)
+
+    return extracted_files if extracted_files else None
 
 async def extract_subtitles(video_file, output_directory):
     if not os.path.exists(video_file): return None
-    # We'll try to extract the first subtitle stream
-    output_file = os.path.join(output_directory, f"sub_{int(time.time())}.srt")
-    cmd = ['ffmpeg', '-i', video_file, '-map', '0:s:0', '-c:s', 'srt', '-y', output_file]
-    process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        LOGGER.error(f"Extract subtitles failed: {stderr.decode(errors='ignore')}")
-        # Fallback to .ass if srt fails or isn't compatible
-        output_file = os.path.join(output_directory, f"sub_{int(time.time())}.ass")
-        cmd = ['ffmpeg', '-i', video_file, '-map', '0:s:0', '-c:s', 'ass', '-y', output_file]
+    info = await media_info(video_file)
+    sub_streams = [s for s in info.get('streams', []) if s.get('codec_type') == 'subtitle']
+
+    if not sub_streams:
+        return None
+
+    extracted_files = []
+    for stream in sub_streams:
+        index = stream.get('index')
+        lang = stream.get('tags', {}).get('language', f'stream_{index}')
+
+        # Try srt
+        output_file = os.path.join(output_directory, f"sub_{lang}_{int(time.time())}_{index}.srt")
+        cmd = ['ffmpeg', '-i', video_file, '-map', f'0:{index}', '-c:s', 'srt', '-y', output_file]
         process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         await process.communicate()
 
-    return output_file if os.path.exists(output_file) and os.path.getsize(output_file) > 0 else None
+        if not os.path.exists(output_file) or os.path.getsize(output_file) == 0:
+            if os.path.exists(output_file): os.remove(output_file)
+            # Try ass
+            output_file = os.path.join(output_directory, f"sub_{lang}_{int(time.time())}_{index}.ass")
+            cmd = ['ffmpeg', '-i', video_file, '-map', f'0:{index}', '-c:s', 'ass', '-y', output_file]
+            process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            await process.communicate()
+
+        if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
+            extracted_files.append(output_file)
+
+    return extracted_files if extracted_files else None
 
 async def add_audio(video_file, audio_file, output_directory):
     output_file = os.path.join(output_directory, f"muxed_{int(time.time())}.mkv")
@@ -663,12 +689,8 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     v_preset = s.get('preset', 'veryfast')
     v_bitrate = s.get('video_bitrate')
 
-    # Scaling logic - skip scaling by default to preserve original resolution
-    # unless it's explicitly set to something other than "-2" (which usually means original/auto)
-    if s['res_h'] not in ["-2", "None", None, "0"]:
-         video_filter = f"scale={s['res_w']}:{s['res_h']}:force_original_aspect_ratio=decrease[scaled];[scaled]subtitles='{escaped_path}':force_style='FontSize=16'"
-    else:
-         video_filter = f"subtitles='{escaped_path}':force_style='FontSize=16'"
+    # Always preserve original resolution for hardsubs as per request
+    video_filter = f"subtitles='{escaped_path}':force_style='FontSize=16'"
 
     if wm_path:
         # Hardsub with watermark: use scale2ref
@@ -696,8 +718,16 @@ async def add_hard_subtitles(video_file, subtitle_file, output_directory, bot, m
     if s['codec'] in ['libx264', 'libx265']:
         cmd.extend([f'-{s["codec"].replace("lib", "")}-params', 'bframes=8:psy-rd=1:ref=3:aq-mode=3:aq-strength=0.8:deblock=1,1'])
 
+    # Determine level based on original resolution since we aren't scaling
+    input_info = await media_info(video_file)
+    input_height = s['res_h'] # Fallback
+    for stream in input_info.get('streams', []):
+        if stream.get('codec_type') == 'video':
+            input_height = stream.get('height', s['res_h'])
+            break
+
     cmd.extend([
-        '-level', get_ffmpeg_level(s['res_h']), '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
+        '-level', get_ffmpeg_level(input_height), '-c:a', 'libopus', '-b:a', s['audio_bitrate'],
         '-ac', '2', '-vbr', '2',
         '-map_metadata', '-1', '-threads', '5'
     ])
