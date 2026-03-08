@@ -22,8 +22,8 @@ async def list_handler(client, message):
     text = "📚 **Active Queue:**\n\n"
     for i, task in enumerate(data):
         task_type = task.get('task_type')
-        msg = task.get('message')
-        text += f"{i+1}. **{task_type}** - ID: `{task.get('id')}`\n"
+        status = task.get('status', 'waiting')
+        text += f"{i+1}. **{task_type}** [{status}] - ID: `{task.get('id')}`\n"
 
     await message.reply_text(text)
 

@@ -288,6 +288,7 @@ if __name__ == "__main__":
             BotCommand(Command.P1080, "Compress to 1080p"),
             BotCommand(Command.ALL, "Compress to all resolutions"),
             BotCommand(Command.RENAME, "Rename file"),
+            BotCommand(Command.ZIP, "Zip file"),
             BotCommand(Command.MERGE, "Merge media files"),
             BotCommand(Command.MEDIAINFO, "Get media info"),
             BotCommand(Command.TRIM, "Trim video"),
